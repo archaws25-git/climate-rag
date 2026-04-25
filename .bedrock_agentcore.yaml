@@ -1,0 +1,15 @@
+project_name: climate-rag
+framework: strands
+entry_point: agent/main.py
+python_version: "3.12"
+
+bedrock_agentcore:
+  runtime:
+    region: us-east-1
+    timeout: 300
+
+environment:
+  AWS_REGION: us-east-1
+  CLIMATE_RAG_BUCKET: climate-rag-index
+  CLIMATE_RAG_MEMORY_ID: ""
+  CLIMATE_RAG_CODE_INTERPRETER_ID: ""

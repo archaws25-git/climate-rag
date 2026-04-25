@@ -1,0 +1,21 @@
+# Core
+bedrock-agentcore
+bedrock-agentcore-starter-toolkit
+strands-agents
+strands-agents-tools
+
+# AWS
+boto3
+
+# Data processing
+pandas
+numpy
+faiss-cpu
+requests
+
+# Visualization (used by Code Interpreter and local testing)
+matplotlib
+plotly
+
+# UI
+streamlit
