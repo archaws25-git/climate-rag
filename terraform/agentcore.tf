@@ -35,18 +35,19 @@ resource "null_resource" "memory" {
   triggers = {
     region       = var.aws_region
     project_name = var.project_name
+    #tf_script    = "${replace(path.module, "\\", "/")}/../infra/tf_agentcore.py"
+    tf_script = "${path.module}/../../infra/tf_agentcore.py"
+    tf_out_dir   = replace(path.module, "\\", "/")
   }
 
   provisioner "local-exec" {
-    when        = create
-    interpreter = ["python3", "${path.module}/../infra/tf_agentcore.py"]
-    command     = "create_memory --region ${var.aws_region} --name ClimateRAGMemoryTF --out ${path.module}/memory_id.txt"
+    when    = create
+    command = "python3 \"${self.triggers.tf_script}\" create_memory --region ${self.triggers.region} --name ClimateRAGMemoryTF --out \"${self.triggers.tf_out_dir}/memory_id.txt\""
   }
 
   provisioner "local-exec" {
-    when        = destroy
-    interpreter = ["python3", "${path.module}/../infra/tf_agentcore.py"]
-    command     = "delete_memory --region ${self.triggers.region} --id-file ${path.module}/memory_id.txt"
+    when    = destroy
+    command = "python3 \"${self.triggers.tf_script}\" delete_memory --region ${self.triggers.region} --id-file \"${self.triggers.tf_out_dir}/memory_id.txt\""
   }
 }
 
@@ -61,18 +62,19 @@ resource "null_resource" "code_interpreter" {
   triggers = {
     region       = var.aws_region
     project_name = var.project_name
+   # tf_script    = "${replace(path.module, "\\", "/")}/../infra/tf_agentcore.py"
+    tf_script = "${path.module}/../../infra/tf_agentcore.py"
+    tf_out_dir   = replace(path.module, "\\", "/")
   }
 
   provisioner "local-exec" {
-    when        = create
-    interpreter = ["python3", "${path.module}/../infra/tf_agentcore.py"]
-    command     = "create_code_interpreter --region ${var.aws_region} --name ClimateChartInterpreterTF --out ${path.module}/code_interpreter_id.txt"
+    when    = create
+    command = "python3 \"${self.triggers.tf_script}\" create_code_interpreter --region ${self.triggers.region} --name ClimateChartInterpreterTF --out \"${self.triggers.tf_out_dir}/code_interpreter_id.txt\""
   }
 
   provisioner "local-exec" {
-    when        = destroy
-    interpreter = ["python3", "${path.module}/../infra/tf_agentcore.py"]
-    command     = "delete_code_interpreter --region ${self.triggers.region} --id-file ${path.module}/code_interpreter_id.txt"
+    when    = destroy
+    command = "python3 \"${self.triggers.tf_script}\" delete_code_interpreter --region ${self.triggers.region} --id-file \"${self.triggers.tf_out_dir}/code_interpreter_id.txt\""
   }
 }
 
@@ -89,21 +91,30 @@ resource "null_resource" "gateway" {
   triggers = {
     region           = var.aws_region
     project_name     = var.project_name
+    #tf_script        = "${replace(path.module, "\\", "/")}/../infra/tf_agentcore.py"
+    tf_script = "${path.module}/../../infra/tf_agentcore.py"
+    tf_out_dir       = replace(path.module, "\\", "/")
     gateway_role_arn = aws_iam_role.gateway.arn
     nasa_lambda_arn  = aws_lambda_function.nasa_power.arn
     noaa_lambda_arn  = aws_lambda_function.noaa_ncei.arn
   }
 
   provisioner "local-exec" {
-    when        = create
-    interpreter = ["python3", "${path.module}/../infra/tf_agentcore.py"]
-    command     = "create_gateway --region ${var.aws_region} --name ClimateDataGatewayTF --role-arn ${aws_iam_role.gateway.arn} --nasa-arn ${aws_lambda_function.nasa_power.arn} --noaa-arn ${aws_lambda_function.noaa_ncei.arn} --out ${path.module}/gateway_id.txt"
+    when    = create
+    command =<<EOT
+python3 "${self.triggers.tf_script}" create_gateway \
+  --region ${self.triggers.region} \
+  --name ClimateDataGatewayTF \
+  --role-arn "${self.triggers.gateway_role_arn}" \
+  --nasa-arn "${self.triggers.nasa_lambda_arn}" \
+  --noaa-arn "${self.triggers.noaa_lambda_arn}" \
+  --out "${self.triggers.tf_out_dir}/gateway_id.txt"
+EOT
   }
 
   provisioner "local-exec" {
-    when        = destroy
-    interpreter = ["python3", "${path.module}/../infra/tf_agentcore.py"]
-    command     = "delete_gateway --region ${self.triggers.region} --id-file ${path.module}/gateway_id.txt"
+    when    = destroy
+    command = "python3 \"${self.triggers.tf_script}\" delete_gateway --region ${self.triggers.region} --id-file \"${self.triggers.tf_out_dir}/gateway_id.txt\""
   }
 }
 

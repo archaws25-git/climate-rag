@@ -1,5 +1,6 @@
 terraform/*.tfstate*
 terraform/.terraform.lock.hcl
-.venv*/*
 terraform/.terraform*/*
+terraform/climate_rag_plan 
+.venv*/*
 */__pycache__/*

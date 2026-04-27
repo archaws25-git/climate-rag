@@ -32,7 +32,7 @@ The system showcases every AgentCore service: Runtime, Memory, Gateway, Identity
 
 ## 2. Step 1: Requirements Gathering
 
-We started by identifying the problem domain (historical climate trend analysis), the target users (NOAA researchers), and the constraints (8-hour timeline, free-tier cost optimization, us-east-1 deployment).
+Requirements gathering was kicked off by first identifying the problem domain (historical climate trend analysis), the target users (NOAA researchers), and the constraints (8-hour timeline, free-tier cost optimization, us-east-1 deployment).
 
 Key requirements that shaped the architecture:
 - Researchers need cited, traceable answers — not just summaries
@@ -46,25 +46,25 @@ These requirements drove us toward an agentic architecture (not a simple RAG cha
 
 ## 3. Step 2: Dataset Selection
 
-We evaluated several NOAA and NASA datasets and selected three that complement each other:
+Several NOAA and NASA datasets were evaluated and eventually three that complemented each other were selected:
 
 ### NASA GISTEMP v4
 - **What**: Global surface temperature anomalies since 1880
-- **Why chosen**: The gold standard for global temperature trends. Small (~100MB), clean CSV format, publicly downloadable, well-documented baseline (1951-1980)
+- **Reason for selection**: The gold standard for global temperature trends. Small (~100MB), clean CSV format, publicly downloadable, well-documented baseline (1951-1980)
 - **Trade-off**: Only provides anomalies, not absolute temperatures. Only global/zonal — no station-level detail
 
 ### NOAA GHCN v4
 - **What**: Monthly temperature records from individual weather stations
-- **Why chosen**: Station-level granularity lets researchers ask about specific cities. We filtered to 6 representative US stations to keep data manageable
-- **Trade-off**: We limited to 6 stations instead of the full 27,000+ network. This keeps ingestion fast but limits geographic coverage. A production system would ingest thousands of stations
+- **Reason for selection**: Station-level granularity lets researchers ask about specific cities. Keeping in mind, the time/cost constraints for this project, only 6 representative US stations were chosen
+- **Trade-off**: While the limit of only 6 stations keeps ingestion fast, it limits geographic coverage. A production system would ideally ingest thousands of stations
 
 ### NASA POWER
 - **What**: Satellite-derived meteorological data (temperature, solar radiation, precipitation) since 1981
-- **Why chosen**: Fills the gap between GISTEMP (global only) and GHCN (station only) by providing gridded regional data. REST API with no authentication required
-- **Trade-off**: 0.5-degree resolution means it's not as precise as station data. We only ingested temperature parameters — precipitation and solar radiation were available but would have increased chunk count significantly
+- **Reason for selection**: Fills the gap between GISTEMP (global only) and GHCN (station only) by providing gridded regional data. REST API with no authentication required
+- **Trade-off**: 0.5-degree resolution means it's not as precise as station data. Only the temperature parameters were ingested, although precipitation and solar radiation were available, as this would have increased the chunk count significantly
 
-### Datasets we considered but rejected:
-- **NOAA Climate Data Records (CDRs)**: NetCDF format requires heavy processing libraries. Not worth the complexity for a demo
+### Datasets considered but rejected:
+- **NOAA Climate Data Records (CDRs)**: NetCDF format requires special processing. This was not worth the complexity for the scope of the current project
 - **NEX-GDDP-CMIP6**: Climate projections, not historical observations. Out of scope
 - **NOAA Storm Events**: Interesting but not relevant to temperature trend analysis
 
@@ -88,7 +88,7 @@ climate-rag/
 └── docs/           # Architecture documentation
 ```
 
-This separation means you can run ingestion independently of the agent, swap the UI without touching the agent, or replace the vector store without changing the tools interface.
+This separation means one can run ingestion independently of the agent, swap the UI without touching the agent, or replace the vector store without changing the tools interface.
 
 ---
 
@@ -108,7 +108,7 @@ This separation means you can run ingestion independently of the agent, swap the
 
 **Output**: 15 chunks (one per decade from 1880s to 2020s)
 
-**Design decision — chunking by decade**: We chose decade-level granularity because researchers typically think in decadal trends ("how did the 1990s compare to the 2000s?"). Year-level chunks would create 145 tiny chunks with too little context each. Monthly chunks would be 1,740 chunks — overkill for a demo. Decade chunks hit the sweet spot of ~500 tokens each with enough context for meaningful retrieval.
+**Design decision — chunking by decade**: Decade-level granularity was chosen because researchers typically think in decadal trends ("how did the 1990s compare to the 2000s?"). Year-level chunks would create 145 tiny chunks with too little context each. Monthly chunks would be 1,740 chunks — overkill for a demo. Decade chunks hit the sweet spot of ~500 tokens each with enough context for meaningful retrieval.
 
 ### `ingest/ingest_ghcn.py`
 
@@ -124,9 +124,9 @@ This separation means you can run ingestion independently of the agent, swap the
 
 **Output**: 48 chunks (6 stations × 8 decades from 1950s to 2020s)
 
-**Design decision — 6 stations**: We picked one station per major US climate region (Southeast, Northeast, West, Midwest, Alaska, Hawaii). This gives geographic diversity while keeping the dataset small. The stations are major airports with long, continuous records — the most reliable GHCN data.
+**Design decision — 6 stations**: Only one station per major US climate region (Southeast, Northeast, West, Midwest, Alaska, Hawaii) was chosen. This gives geographic diversity while keeping the dataset small. The stations are major airports with long, continuous records — the most reliable GHCN data.
 
-**Design decision — sample data fallback**: The NOAA API can be slow or return errors. Rather than failing the entire pipeline, we generate statistically plausible sample data. This ensures the demo always works. The sample data includes a realistic warming trend (~0.015°C/year) with random noise.
+**Design decision — sample data fallback**: The NOAA API can be slow or return errors. Rather than failing the entire pipeline,  statistically plausible sample data is egenrated. This ensures the demo always works. The sample data includes a realistic warming trend (~0.015°C/year) with random noise.
 
 ### `ingest/ingest_power.py`
 
@@ -141,9 +141,9 @@ This separation means you can run ingestion independently of the agent, swap the
 
 **Output**: 30 chunks (6 regions × 5 decades from 1980s to 2020s)
 
-**Bug we fixed during development**: The NASA POWER monthly API expects `start=2020` (year only), not `start=198101` (year+month). The original code used the wrong format, causing HTTP 422 errors. We discovered this by testing the API directly with curl.
+**Bug(s) fixed during development**: The NASA POWER monthly API expects `start=2020` (year only), not `start=198101` (year+month). The original code used the wrong format, causing HTTP 422 errors. Discovered this by testing the API directly with curl.
 
-**Design decision — temperature only**: NASA POWER offers solar radiation (ALLSKY_SFC_SW_DWN) and precipitation (PRECTOTCORR) too. We only ingested temperature to keep chunks focused. The eval revealed this gap — queries about precipitation get honest "data not available" responses. A production system would ingest all parameters.
+**Design decision -- temperature only**: NASA POWER offers solar radiation (ALLSKY_SFC_SW_DWN) and precipitation (PRECTOTCORR) too. Only temperature was ingested, in order to keep chunks focused. The eval revealed this gap — queries about precipitation get "data not available" responses. A production system would ingest all parameters.
 
 ---
 
@@ -168,7 +168,7 @@ This separation means you can run ingestion independently of the agent, swap the
 - **OpenAI ada-002**: Requires external API key, not Bedrock-native
 - For 93 chunks, embedding quality differences are negligible. Cost was the deciding factor.
 
-**Design decision — client-side embedding**: We generate embeddings ourselves rather than using Weaviate's or Bedrock Knowledge Base's built-in vectorization. This gives us full control over the embedding model and lets us use FAISS (which requires pre-computed vectors). The trade-off is more code to maintain.
+**Design decision — client-side embedding**: instead of using Weaviate's or Bedrock Knowledge Base's built-in vectorization, vectors are generated by the application on the client-side. This allows for full control over the embedding model and also allows for the use of FAISS (which requires pre-computed vectors). The trade-off is more code to maintain.
 
 ---
 
@@ -201,7 +201,7 @@ This separation means you can run ingestion independently of the agent, swap the
 
 For 93 vectors, FAISS loads into memory in under a second. There's no running infrastructure, no monthly cost, and no network latency. The entire index fits in a single S3 object smaller than a JPEG photo.
 
-**When to upgrade**: If the dataset grows beyond ~100K vectors, or if you need real-time updates or complex metadata filtering, switch to OpenSearch Serverless or pgvector on Aurora Serverless v2.
+**When to upgrade**: If the dataset grows beyond ~100K vectors, or if one needs real-time updates or complex metadata filtering, switch to OpenSearch Serverless or pgvector on Aurora Serverless v2.
 
 **Design decision — IndexFlatIP (brute force) over approximate indexes**: FAISS offers approximate nearest neighbor indexes (IVF, HNSW) that are faster for large datasets. With 93 vectors, brute-force search takes microseconds. Approximate indexes add complexity with zero benefit at this scale.
 
@@ -217,16 +217,16 @@ For 93 vectors, FAISS loads into memory in under a second. There's no running in
 1. Loads the system prompt from `prompts/system_prompt.txt`
 2. Creates a `BedrockModel` pointing to Claude Sonnet 4 via inference profile
 3. Registers tools: `search_climate_data`, `generate_chart`, and optionally memory tools
-4. `handle_request()` snapshots the chart directory before calling the agent, then detects any new chart files after — this is how we capture chart outputs
+4. `handle_request()` snapshots the chart directory before calling the agent, then detects any new chart files after — this is how chart outputs are captured.
 5. Optionally saves conversation turns to AgentCore Memory
 
-**Bug we fixed**: Claude Sonnet 4 requires an inference profile ID (`us.anthropic.claude-sonnet-4-20250514-v1:0`), not the raw model ID. The raw ID throws `ValidationException: Invocation of model ID with on-demand throughput isn't supported`. This is a Bedrock requirement for newer models.
+**Bug(s) fixed**: Claude Sonnet 4 requires an inference profile ID (`us.anthropic.claude-sonnet-4-20250514-v1:0`), not the raw model ID. The raw ID throws `ValidationException: Invocation of model ID with on-demand throughput isn't supported`. This is a Bedrock requirement for newer models.
 
 **Design decision — Strands Agents over LangGraph/LlamaIndex**:
-- **Strands**: First-class AgentCore starter toolkit support, `agentcore create/dev/deploy` workflow, built-in OTEL instrumentation, simplest deployment path
+- **AWS Strands**: First-class AgentCore starter toolkit support, `agentcore create/dev/deploy` workflow, built-in OTEL instrumentation, simplest deployment path
 - **LangGraph**: More flexible graph-based orchestration, better for complex multi-step workflows, but more boilerplate
 - **LlamaIndex**: Strong RAG primitives, but less native AgentCore integration
-- We chose Strands because the AgentCore starter toolkit is built around it. Deployment is `agentcore deploy` — one command.
+- AWS Strands was chosen as the AgentCore starter toolkit is built around it. Deploymentcan be done using a single command: `agentcore deploy`
 
 ### `agent/tools/rag_tool.py`
 
@@ -253,9 +253,9 @@ For 93 vectors, FAISS loads into memory in under a second. There's no running in
 5. Saves the PNG to `/tmp/climate-rag-charts/` with a unique filename
 6. Returns the file path so the UI can display it
 
-**Key discovery during development**: The Code Interpreter API uses an event stream response, not a simple JSON body. The correct invocation requires `name="executeCode"` and `arguments={"code": "...", "language": "python"}`. We discovered this through trial and error — the error messages guided us to the correct enum values.
+**Key discovery during development**: The Code Interpreter API uses an event stream response, not a simple JSON body. The correct invocation requires `name="executeCode"` and `arguments={"code": "...", "language": "python"}`. Discovered this through trial and error with the error messages providing guidance to the correct enum values.
 
-**Design decision — file-based chart passing**: The Strands Agent consumes tool results internally and summarizes them in prose. It does NOT pass through raw base64 data to the final response. We solved this by saving charts to disk and having `handle_request()` detect new files by comparing directory snapshots before and after the agent call. This is a pragmatic workaround that avoids modifying the Strands framework.
+**Design decision — file-based chart passing**: The Strands Agent consumes tool results internally and summarizes them in prose. It does NOT pass the raw base64 data to the final response. The workaround was to save the charts to disk and have `handle_request()` detect new files by comparing directory snapshots before and after the agent call. This is a pragmatic workaround that avoids modifying the Strands framework.
 
 ### `agent/tools/memory_tool.py`
 
@@ -267,7 +267,7 @@ For 93 vectors, FAISS loads into memory in under a second. There's no running in
 3. `get_recent_turns`: Retrieves the last k conversation turns from the current session
 4. `save_turn`: Writes a conversation turn (user or assistant message) to memory
 
-**Design decision — optional memory**: Memory tools are wrapped in a try/except import. If the `bedrock-agentcore` SDK isn't installed, the agent works without memory. This makes local development easier — you don't need the full AgentCore SDK just to test RAG queries.
+**Design decision — optional memory**: Memory tools are wrapped in a try/except import. If the `bedrock-agentcore` SDK isn't installed, the agent works without memory. This makes local development easier — one does not need the full AgentCore SDK just to test RAG queries.
 
 ### `agent/prompts/system_prompt.txt`
 
@@ -286,7 +286,7 @@ For 93 vectors, FAISS loads into memory in under a second. There's no running in
 
 ### AgentCore Memory (`infra/setup_memory.py`)
 
-**What we created**: A memory resource named `ClimateRAGMemory` with a semantic long-term memory strategy.
+**What was created**: A memory resource named `ClimateRAGMemory` with a semantic long-term memory strategy.
 
 **Command used**:
 ```
@@ -304,18 +304,18 @@ agentcore memory create ClimateRAGMemory \
 
 ### AgentCore Code Interpreter (`infra/setup_code_interpreter.py`)
 
-**What we created**: A sandboxed Python execution environment named `ClimateChartInterpreter`.
+**What was created**: A sandboxed Python execution environment named `ClimateChartInterpreter`.
 
 **What it provides**: Isolated Python runtime with matplotlib, numpy, pandas pre-installed. The agent sends Python code, the interpreter executes it in a secure sandbox, and returns stdout/stderr.
 
-**Design decision — Code Interpreter over local execution**: We could have the agent generate charts locally using matplotlib. But Code Interpreter provides:
+**Design decision — Code Interpreter over local execution**: It is possible to have the agent generate charts locally using matplotlib. But Code Interpreter provides:
 - Security: sandboxed execution, no access to the agent's filesystem
 - Consistency: same environment regardless of where the agent runs
 - AgentCore showcase: demonstrates the Code Interpreter service
 
 ### AgentCore Gateway
 
-**What we created**: An MCP Gateway named `ClimateDataGateway` with semantic search enabled and two Lambda targets.
+**What was created**: An MCP Gateway named `ClimateDataGateway` with semantic search enabled and two Lambda targets.
 
 **What it provides**: Converts our Lambda functions into MCP-compatible tools that the agent can discover and call. Semantic search means the agent can find relevant tools by describing what it needs.
 
@@ -339,7 +339,7 @@ agentcore memory create ClimateRAGMemory \
 4. Normalizes the response (extracts just the parameter data, discards metadata)
 5. Returns a compact JSON response
 
-**Design decision — Lambda over API Gateway**: We could have put API Gateway in front of the external APIs and used OpenAPI specs as Gateway targets. Lambda is simpler for this use case — no API Gateway configuration, no OpenAPI spec to write, and we get request/response transformation for free in Python.
+**Design decision — Lambda over API Gateway**: Putting API Gateway in front of the external APIs and using OpenAPI specs as Gateway targets was certainly one option on the table. However, Lambda is simpler for this use case — no API Gateway configuration, no OpenAPI spec to write, and request/response transformation is freely available in Python.
 
 ### `gateway/lambda_noaa_ncei/handler.py`
 
@@ -367,7 +367,7 @@ agentcore memory create ClimateRAGMemory \
 - **React**: Better for production but would take hours to build
 - **Plain HTML/JS/CSS**: No server-side Python integration without building an API layer
 
-**HTTPS setup**: Streamlit only serves HTTP. We put nginx in front as a reverse proxy with a self-signed TLS certificate for HTTPS on port 443. The nginx config handles WebSocket upgrades (required by Streamlit's live-reload protocol).
+**HTTPS setup**: Streamlit only serves HTTP. A Nginx server is set-up in front as a reverse proxy with a self-signed TLS certificate for HTTPS on port 443. The nginx config handles WebSocket upgrades (required by Streamlit's live-reload protocol).
 
 ---
 
@@ -396,10 +396,10 @@ agentcore memory create ClimateRAGMemory \
 
 **Results**: 87% average keyword score, 100% success rate across 10 queries.
 
-**Design decision — simple keyword eval over LLM-as-Judge**: AgentCore Evaluations supports LLM-as-Judge scoring, which would be more nuanced. We used keyword matching because:
+**Design decision — simple keyword eval over LLM-as-Judge**: AgentCore Evaluations supports LLM-as-Judge scoring, which would be more nuanced. However, keyword matching was selected for the following reasons:
 1. It runs without deploying to AgentCore Runtime (works locally)
-2. It's deterministic and fast
-3. It's sufficient to catch major regressions
+2. It is deterministic and fast
+3. It is sufficient to catch major regressions
 A production system would use AgentCore Evaluations with LLM-as-Judge for correctness, relevance, and citation accuracy.
 
 ---
@@ -411,12 +411,12 @@ A production system would use AgentCore Evaluations with LLM-as-Judge for correc
 **Agentic RAG vs simple RAG chain**:
 - Simple chain: query → embed → retrieve → generate. Predictable, fast, but can't decide to call live APIs or generate charts
 - Agentic: the LLM decides which tools to use per query. More flexible but slower (multiple tool calls) and less predictable
-- We chose agentic because the requirements demand tool selection (vector search vs live API vs chart generation)
+- The agentic approach was chosen because the requirements rely on tool selection (vector search vs live API vs chart generation)
 
 **Single agent vs multi-agent**:
 - Single agent with multiple tools: simpler, all context in one conversation
 - Multi-agent (retriever agent + analyst agent + chart agent): better separation of concerns but adds latency and complexity
-- We chose single agent. For 3 tools, the overhead of multi-agent orchestration isn't justified
+- A single agent approach was chosen, because for switching between just 3 tools, the overhead of multi-agent orchestration isn't justified
 
 ### Data decisions
 
@@ -428,14 +428,14 @@ A production system would use AgentCore Evaluations with LLM-as-Judge for correc
 **Pre-computed embeddings vs query-time embedding**:
 - Pre-computed: faster retrieval, but stale if data changes
 - Query-time: always fresh, but slower and more expensive
-- We pre-compute because climate data updates monthly at most. The 1-second embedding call per query is acceptable
+- Opted for the pre-compute because climate data updates monthly at most. The 1-second embedding call per query is still acceptable for this project
 
 ### Infrastructure decisions
 
 **AgentCore Runtime vs ECS Fargate**:
 - AgentCore Runtime: serverless microVM, built-in identity/observability, `agentcore deploy` workflow
 - ECS Fargate: more control, FedRAMP-authorized, but requires Docker/ECR/task definitions
-- We chose AgentCore Runtime to showcase the service. For FedRAMP-High production, the mitigation plan is to move to ECS in GovCloud
+- AgentCore Runtime was chosen to showcase the service. For FedRAMP-High production, the mitigation plan would be to move to ECS in GovCloud
 
 **Self-signed TLS vs ACM certificate**:
 - ACM: proper certificates, but requires a domain name and DNS validation
@@ -447,12 +447,12 @@ A production system would use AgentCore Evaluations with LLM-as-Judge for correc
 **Claude Sonnet 4 vs Haiku**:
 - Sonnet: ~$3/1M input tokens, strong reasoning, detailed answers
 - Haiku: ~$0.25/1M input tokens, faster, but less detailed analysis
-- We chose Sonnet because researchers need thorough, well-reasoned answers. A production system could route simple lookups to Haiku and complex analysis to Sonnet
+- Sonnet was chosen because researchers need thorough, well-reasoned answers. A production system could route simple lookups to Haiku and complex analysis to Sonnet
 
 **FAISS on S3 vs managed vector DB**:
 - FAISS: $0/month, but no real-time updates or metadata filtering
 - OpenSearch Serverless: $350+/month minimum, but fully managed with filtering
-- For 93 vectors, paying $350/month for a managed vector database would be like renting a warehouse to store a shoebox
+- For 93 vectors, paying $350/month for a managed vector database would be severe overkill
 
 
 ---
@@ -489,7 +489,7 @@ awscc_bedrockagentcore_gateway                 → AgentCore Gateway
 
 ### Gateway Targets: The null_resource Workaround
 
-At the time of writing, the AWSCC provider does not include `awscc_bedrockagentcore_gateway_target` as a resource type. We work around this by using `null_resource` with a `local-exec` provisioner that calls the boto3 API directly:
+At the time of writing, the AWSCC provider does not include `awscc_bedrockagentcore_gateway_target` as a resource type. The work around for this is to use `null_resource` with a `local-exec` provisioner that calls the boto3 API directly:
 
 ```hcl
 resource "null_resource" "gateway_target_nasa" {
@@ -503,7 +503,7 @@ This is a pragmatic workaround. When the AWSCC provider adds `gateway_target` su
 
 ### Importing Existing Resources
 
-Since we initially created resources manually (via `agentcore` CLI and boto3), we imported them into Terraform state before applying:
+Since the resources were initially created manually (via `agentcore` CLI and boto3), they were imported into Terraform state before applying:
 
 ```bash
 terraform import aws_s3_bucket.index climate-rag-index-816349677272
@@ -515,14 +515,13 @@ AWSCC resources (Memory, Gateway, Code Interpreter) were created fresh with `-TF
 
 ### IAM Propagation Timing
 
-One issue we hit: the Gateway target creation failed because the IAM role's Lambda invoke policy hadn't propagated yet. Terraform created the IAM policy and the Gateway target in parallel, but AWS IAM is eventually consistent. The fix was to retry the target creation after a short delay. In production, you'd add an explicit `depends_on` or use a `time_sleep` resource.
-
+The Gateway target creation failed because the IAM role's Lambda invoke policy hadn't propagated yet. Terraform created the IAM policy and the Gateway target in parallel, but AWS IAM is **eventually** consistent. The fix was to retry the target creation after a short delay. In production, either an explicit `depends_on` or a `time_sleep` resource would need to be used.
 ### Running the Terraform
 
 ```bash
 cd climate-rag/terraform
 terraform init
-terraform plan -out=tfplan
+terraform plan -out=climate_rag_plan
 terraform apply tfplan
 
 # Get environment variables for the agent
@@ -548,7 +547,7 @@ This tears down all AgentCore resources, Lambda functions, IAM roles, and the S3
 | Speed of iteration | Slower (plan/apply cycle) | Faster for prototyping |
 | Team collaboration | State locking, code review | Ad-hoc |
 
-For production: use Terraform. For prototyping: use the `agentcore` CLI. For this project, we used the CLI first to iterate quickly, then codified everything in Terraform for reproducibility.
+For production: use Terraform. For prototyping: use the `agentcore` CLI. For this project, the UI/CLI were used to iterate quickly and then codified everything in Terraform for reproducibility.
 
 
 ---
@@ -619,11 +618,11 @@ These were created manually before Terraform was introduced, or auto-created by 
 
 ### Why Two Sets of Resources Exist
 
-During development, we followed this workflow:
-1. **Manual creation** (via `agentcore` CLI and boto3) — fast iteration, immediate testing
+During development, this was the workflow employed:
+1. **Manual creation** (via UI, `agentcore` CLI and boto3) — fast iteration, immediate testing
 2. **Terraform codification** — reproducibility, team collaboration, proper IaC
 
-The Terraform resources have a `-TF` suffix (e.g., `ClimateRAGMemoryTF`) to avoid naming conflicts with the manually-created originals. In a clean deployment, you would only use Terraform and there would be a single set of resources.
+The Terraform resources have a `-TF` suffix (e.g., `ClimateRAGMemoryTF`) to avoid naming conflicts with the manually-created originals. In a clean deployment, one would only use Terraform and there would be a single set of resources.
 
 ### Recreating Terraform Provider Binaries
 
