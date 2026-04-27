@@ -226,7 +226,9 @@ For 93 vectors, FAISS loads into memory in under a second. There's no running in
 - **AWS Strands**: First-class AgentCore starter toolkit support, `agentcore create/dev/deploy` workflow, built-in OTEL instrumentation, simplest deployment path
 - **LangGraph**: More flexible graph-based orchestration, better for complex multi-step workflows, but more boilerplate
 - **LlamaIndex**: Strong RAG primitives, but less native AgentCore integration
-- AWS Strands was chosen as the AgentCore starter toolkit is built around it. Deploymentcan be done using a single command: `agentcore deploy`
+
+- AWS Strands was chosen as it is part of the AWS eco-system and it offers out-of-the box support for AgentCore, MCP tools, logging/telemetry and multi-agent architectures as well. 
+  Often-times for it is easier to get approval for compliance-sensitive projects when the project's resources are supplied by the same vendor.
 
 ### `agent/tools/rag_tool.py`
 
@@ -522,7 +524,7 @@ The Gateway target creation failed because the IAM role's Lambda invoke policy h
 cd climate-rag/terraform
 terraform init
 terraform plan -out=climate_rag_plan
-terraform apply tfplan
+terraform apply climate_rag_plan
 
 # Get environment variables for the agent
 terraform output environment_variables
