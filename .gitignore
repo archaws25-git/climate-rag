@@ -4,3 +4,8 @@ terraform/.terraform*/*
 terraform/climate_rag_plan 
 .venv*/*
 */__pycache__/*
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/*
+.pytest_cache/*

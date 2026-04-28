@@ -1,0 +1,267 @@
+"""
+Run on-demand LLM-as-Judge evaluation of ClimateRAG agent.
+
+Replaces keyword-based scoring with structured Claude Sonnet judgements across
+four dimensions:
+  - correctness   : Is the answer factually accurate for a climate data query?
+  - relevance     : Does the answer actually address what was asked?
+  - tool_use      : Did the agent call the right tool(s) for the query?
+  - citation      : Did the agent cite the expected data source?
+
+Each dimension is scored 1–5. Results are written to JSON and summarised on
+stdout in the same format as the original script so existing CI/tooling is
+unaffected.
+"""
+
+import json
+import os
+import sys
+import time
+
+import boto3
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agent"))
+
+from eval_config import BENCHMARK_QUERIES
+from main import handle_request
+
+# ── Bedrock client (same region / credentials as the rest of the project) ─────
+bedrock = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+JUDGE_MODEL = "anthropic.claude-sonnet-4-5"   # same model family used by the agent
+
+
+# ── Prompt templates ──────────────────────────────────────────────────────────
+
+JUDGE_SYSTEM = """You are an expert evaluator for a climate-data RAG system.
+You will receive a user question, the agent's answer, and metadata about what
+tools and data sources were expected. Your job is to score the answer on four
+dimensions and return ONLY a JSON object — no preamble, no markdown fences.
+
+Scoring scale for every dimension: 1 = very poor, 3 = acceptable, 5 = excellent.
+
+Return exactly this JSON shape:
+{
+  "correctness":   <int 1-5>,
+  "relevance":     <int 1-5>,
+  "tool_use":      <int 1-5>,
+  "citation":      <int 1-5>,
+  "reasoning":     "<one concise sentence per dimension separated by | >"
+}
+
+Dimension definitions
+---------------------
+correctness  — Is the factual content of the answer accurate and consistent with
+               known climate science? Penalise hallucinated figures, wrong baselines,
+               or made-up station data.
+relevance    — Does the answer directly address the user's question without
+               excessive padding or off-topic content?
+tool_use     — Given the expected tools listed, did the answer reflect that the
+               right retrieval path was taken? (Infer from citations/phrasing if
+               tool names are not explicit.)
+citation     — Did the answer explicitly reference the expected data source
+               (e.g. GHCN v4, GISTEMP v4, NASA POWER)?
+"""
+
+JUDGE_USER_TMPL = """### User question
+{query}
+
+### Agent answer
+{answer}
+
+### Expected tool(s)
+{expected_tools}
+
+### Expected data source
+{expected_source}
+
+Score the answer now."""
+
+
+# ── Core judge call ───────────────────────────────────────────────────────────
+
+def judge(query: str, answer: str, expected_tools: list, expected_source: str) -> dict:
+    """
+    Call Claude Sonnet as judge. Returns a dict with keys:
+      correctness, relevance, tool_use, citation  (all int 1-5)
+      reasoning  (str)
+    On any failure returns all scores = 0 and an error string in reasoning.
+    """
+    user_msg = JUDGE_USER_TMPL.format(
+        query=query,
+        answer=answer,
+        expected_tools=", ".join(expected_tools),
+        expected_source=expected_source,
+    )
+
+    payload = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 512,
+        "system": JUDGE_SYSTEM,
+        "messages": [{"role": "user", "content": user_msg}],
+    }
+
+    try:
+        resp = bedrock.invoke_model(
+            modelId=JUDGE_MODEL,
+            contentType="application/json",
+            accept="application/json",
+            body=json.dumps(payload),
+        )
+        body = json.loads(resp["body"].read())
+        raw = body["content"][0]["text"].strip()
+
+        # Strip accidental markdown fences if the model adds them
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+
+        scores = json.loads(raw)
+
+        # Validate expected keys and types
+        required = {"correctness", "relevance", "tool_use", "citation", "reasoning"}
+        if not required.issubset(scores.keys()):
+            raise ValueError(f"Missing keys in judge response: {scores.keys()}")
+        for dim in ("correctness", "relevance", "tool_use", "citation"):
+            scores[dim] = int(scores[dim])
+            if not 1 <= scores[dim] <= 5:
+                raise ValueError(f"{dim} score out of range: {scores[dim]}")
+
+        return scores
+
+    except Exception as exc:
+        return {
+            "correctness": 0,
+            "relevance":   0,
+            "tool_use":    0,
+            "citation":    0,
+            "reasoning":   f"JUDGE_ERROR: {exc}",
+        }
+
+
+# ── Composite score helper ────────────────────────────────────────────────────
+
+def composite(scores: dict) -> float:
+    """
+    Weighted average of the four scored dimensions.
+    Weights reflect what matters most for a production RAG system:
+      correctness 40 %, relevance 30 %, citation 20 %, tool_use 10 %
+    Returns a value in [0, 1] (normalized from 1-5 scale).
+    """
+    weights = {"correctness": 0.40, "relevance": 0.30, "citation": 0.20, "tool_use": 0.10}
+    raw = sum(scores[dim] * w for dim, w in weights.items())
+    # Normalise: min possible weighted = 1.0, max = 5.0
+    return (raw - 1.0) / 4.0
+
+
+# ── Main evaluation loop ──────────────────────────────────────────────────────
+
+def run_evaluation():
+    results = []
+
+    for bench in BENCHMARK_QUERIES:
+        print(f"\n{'='*60}")
+        print(f"Running: {bench['id']} — {bench['query'][:60]}...")
+
+        try:
+            response = handle_request(bench["query"])
+            answer = response["response"]
+
+            # --- LLM-as-Judge scoring ---
+            scores = judge(
+                query=bench["query"],
+                answer=answer,
+                expected_tools=bench["expected_tools"],
+                expected_source=bench["expected_source"],
+            )
+
+            comp = composite(scores)
+
+            results.append({
+                "id":            bench["id"],
+                "query":         bench["query"],
+                "status":        "success",
+                "answer_length": len(answer),
+                "scores":        scores,
+                "composite":     round(comp, 3),
+            })
+
+            print(f"  Correctness : {scores['correctness']}/5")
+            print(f"  Relevance   : {scores['relevance']}/5")
+            print(f"  Tool use    : {scores['tool_use']}/5")
+            print(f"  Citation    : {scores['citation']}/5")
+            print(f"  Composite   : {comp:.0%}")
+            print(f"  Reasoning   : {scores['reasoning']}")
+
+        except Exception as exc:
+            results.append({
+                "id":    bench["id"],
+                "query": bench["query"],
+                "status": "error",
+                "error": str(exc),
+            })
+            print(f"  ERROR: {exc}")
+
+        # Polite pause to avoid Bedrock throttling when running all 10 queries
+        time.sleep(1)
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    print(f"\n{'='*60}")
+    print("EVALUATION SUMMARY")
+    print(f"{'='*60}")
+
+    successful = [r for r in results if r["status"] == "success"]
+    errors     = [r for r in results if r["status"] == "error"]
+
+    if successful:
+        def avg_dim(dim):
+            return sum(r["scores"][dim] for r in successful) / len(successful)
+
+        avg_composite = sum(r["composite"] for r in successful) / len(successful)
+
+        print(f"Queries run     : {len(results)}")
+        print(f"Successful      : {len(successful)}")
+        print(f"Errors          : {len(errors)}")
+        print(f"Avg correctness : {avg_dim('correctness'):.1f}/5")
+        print(f"Avg relevance   : {avg_dim('relevance'):.1f}/5")
+        print(f"Avg tool use    : {avg_dim('tool_use'):.1f}/5")
+        print(f"Avg citation    : {avg_dim('citation'):.1f}/5")
+        print(f"Avg composite   : {avg_composite:.0%}")
+
+        # Flag queries that fall below the project's target thresholds
+        # (correctness ≥ 80 % → score ≥ 4, relevance ≥ 85 % → score ≥ 4.25,
+        #  which we round to 4 for the 1-5 scale)
+        failures = [
+            r for r in successful
+            if r["scores"]["correctness"] < 4 or r["scores"]["relevance"] < 4
+        ]
+        if failures:
+            print(f"\n⚠  Queries below threshold ({len(failures)}):")
+            for r in failures:
+                print(f"   {r['id']} — correctness={r['scores']['correctness']} "
+                      f"relevance={r['scores']['relevance']}")
+
+    # ── Persist ───────────────────────────────────────────────────────────────
+    output_path = "/tmp/climate-rag-eval-results.json"
+    with open(output_path, "w") as f:
+        json.dump(
+            {
+                "model":   JUDGE_MODEL,
+                "results": results,
+                "summary": {
+                    "total":         len(results),
+                    "successful":    len(successful),
+                    "errors":        len(errors),
+                    "avg_composite": round(
+                        sum(r["composite"] for r in successful) / len(successful), 3
+                    ) if successful else None,
+                } if successful else {},
+            },
+            f,
+            indent=2,
+        )
+    print(f"\nDetailed results saved to {output_path}")
+
+
+if __name__ == "__main__":
+    run_evaluation()
