@@ -9,4 +9,4 @@ terraform/climate_rag_plan
 *.pyd
 .mypy_cache/*
 .pytest_cache/*
-cdk/cdk.out/*
+cdk/cdk.o*/*
