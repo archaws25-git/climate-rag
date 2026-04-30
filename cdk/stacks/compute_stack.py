@@ -36,6 +36,7 @@ from aws_cdk import (
     Stack,
     Duration,
     CfnOutput,
+    RemovalPolicy,
     aws_iam as iam,
     aws_lambda as lambda_,
 )
@@ -65,33 +66,33 @@ class ComputeStack(Stack):
         lambda_role = iam.Role(
             self,
             "LambdaExecutionRole",
-            role_name="climate-rag-lambda-role",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name(
                     "service-role/AWSLambdaBasicExecutionRole"
                 )
             ],
-            description="ClimateRAG Lambda execution role — CloudWatch Logs only",
+            description="ClimateRAG Lambda execution role - CloudWatch Logs only",
         )
+        lambda_role.apply_removal_policy(RemovalPolicy.DESTROY)
 
         # ── IAM: Gateway Invocation Role ─────────────────────────
         # Scoped to invoking exactly these two Lambda ARNs.
         # Inline policy is attached after the Lambda functions are created
-        # so we have their ARNs available.
+        # so their ARNs are available.
         self.gateway_role = iam.Role(
             self,
             "GatewayInvocationRole",
-            role_name="climate-rag-gateway-role",
             assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
-            description="ClimateRAG AgentCore Gateway — Lambda invocation role",
+            description="ClimateRAG AgentCore Gateway - Lambda invocation role",
         )
+        self.gateway_role.apply_removal_policy(RemovalPolicy.DESTROY)
+
 
         # ── Lambda: NASA POWER Proxy ──────────────────────────────
         self.nasa_lambda = lambda_.Function(
             self,
             "NasaPowerProxy",
-            function_name="climate-rag-nasa-power",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="handler.handler",
             code=lambda_.Code.from_asset(
@@ -100,17 +101,17 @@ class ComputeStack(Stack):
             role=lambda_role,
             timeout=Duration.seconds(30),
             memory_size=128,
-            description="Proxy for NASA POWER REST API — temperature/solar/precip data",
+            description="Proxy for NASA POWER REST API - temperature/solar/precip data",
             environment={
                 "POWERTOOLS_SERVICE_NAME": "climate-rag-nasa-power",
             },
         )
+        self.nasa_lambda.apply_removal_policy(RemovalPolicy.DESTROY)
 
         # ── Lambda: NOAA NCEI Proxy ───────────────────────────────
         self.noaa_lambda = lambda_.Function(
             self,
             "NoaaNceiProxy",
-            function_name="climate-rag-noaa-ncei",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="handler.handler",
             code=lambda_.Code.from_asset(
@@ -124,6 +125,8 @@ class ComputeStack(Stack):
                 "POWERTOOLS_SERVICE_NAME": "climate-rag-noaa-ncei",
             },
         )
+        self.noaa_lambda.apply_removal_policy(RemovalPolicy.DESTROY)
+
 
         # ── IAM: Attach Gateway → Lambda invoke policy ────────────
         # Now that both Lambda ARNs exist, scope the policy tightly.
@@ -141,15 +144,15 @@ class ComputeStack(Stack):
         # ── Grant the agent runtime role read access to S3 ────────
         # The RAG tool downloads the FAISS index from this bucket.
         # The actual AgentCore Runtime role ARN is not known at synth time
-        # (it is created by AgentCore at deploy time), so we use a
+        # (it is created by AgentCore at deploy time), so a
         # resource-based bucket policy scoped to the Bedrock AgentCore
-        # service principal instead.
+        # service principal is used instead.
         bucket.add_to_resource_policy(
             iam.PolicyStatement(
                 sid="AllowAgentCoreRuntimeReadIndex",
                 effect=iam.Effect.ALLOW,
                 principals=[
-                    iam.ServicePrincipal("bedrock-agentcore.amazonaws.com")
+                    iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
                 ],
                 actions=["s3:GetObject", "s3:ListBucket"],
                 resources=[

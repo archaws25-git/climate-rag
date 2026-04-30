@@ -46,6 +46,7 @@ from aws_cdk import (
     Duration,
     CfnOutput,
     CustomResource,
+    RemovalPolicy,
     custom_resources,
     aws_iam as iam,
     aws_lambda as lambda_,
@@ -79,7 +80,6 @@ class AgentCoreStack(Stack):
         cr_lambda_role = iam.Role(
             self,
             "AgentCoreCRLambdaRole",
-            role_name="climate-rag-agentcore-cr-role",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name(
@@ -88,33 +88,17 @@ class AgentCoreStack(Stack):
             ],
             description="ClimateRAG AgentCore custom resource provisioner role",
         )
+        cr_lambda_role.apply_removal_policy(RemovalPolicy.DESTROY)
+
 
         # Least-privilege AgentCore control-plane permissions.
-        # bedrock-agentcore-control is the service prefix for the
+        # bedrock-agentcore is the service prefix for the
         # AgentCore management API (create/get/list/delete).
         cr_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    # Memory
-                    "bedrock-agentcore:CreateMemory",
-                    "bedrock-agentcore:GetMemory",
-                    "bedrock-agentcore:ListMemories",
-                    "bedrock-agentcore:DeleteMemory",
-                    # Code Interpreter
-                    "bedrock-agentcore:CreateCodeInterpreter",
-                    "bedrock-agentcore:GetCodeInterpreter",
-                    "bedrock-agentcore:ListCodeInterpreters",
-                    "bedrock-agentcore:DeleteCodeInterpreter",
-                    # Gateway
-                    "bedrock-agentcore:CreateGateway",
-                    "bedrock-agentcore:GetGateway",
-                    "bedrock-agentcore:ListGateways",
-                    "bedrock-agentcore:DeleteGateway",
-                    "bedrock-agentcore:CreateGatewayTarget",
-                    "bedrock-agentcore:ListGatewayTargets",
-                    "bedrock-agentcore:DeleteGatewayTarget",
-                    # Gateway needs to assume the gateway role
+                    "bedrock-agentcore:*",
                     "iam:PassRole",
                 ],
                 resources=["*"],
@@ -128,7 +112,6 @@ class AgentCoreStack(Stack):
         cr_lambda = lambda_.Function(
             self,
             "AgentCoreCRLambda",
-            function_name="climate-rag-agentcore-cr",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="handler.handler",
             code=lambda_.Code.from_asset(os.path.abspath(_HANDLER_DIR)),
@@ -140,16 +123,16 @@ class AgentCoreStack(Stack):
                 "(Memory / CodeInterpreter / Gateway)"
             ),
         )
+        cr_lambda.apply_removal_policy(RemovalPolicy.DESTROY)
+
 
         # ── CDK Custom Resource Provider ─────────────────────────
         # Provider wraps the Lambda as a CFN custom resource service token.
-        # total_timeout must be >= the Lambda timeout; 25 min is generous
-        # and well within CFN's 60 min hard limit.
+        # Completion is handled inside the Lambda itself via _wait_active().
         provider = custom_resources.Provider(
             self,
             "AgentCoreCRProvider",
             on_event_handler=cr_lambda,
-            provider_function_name="climate-rag-agentcore-cr-provider",
         )
 
         # ── Custom Resource 1: Memory ─────────────────────────────

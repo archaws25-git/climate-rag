@@ -236,36 +236,15 @@ def _handle_code_interpreter(request_type: str, physical_id: str, props: dict) -
             ci_id = existing[0]["codeInterpreterId"]
             logger.info("Code Interpreter already exists — reusing: %s", ci_id)
         else:
-            try:
-                resp = client.create_code_interpreter(
-                    name=name,
-                    description=props.get(
-                        "Description", "Sandboxed Python for climate data chart generation"
-                    ),
-                    networkConfiguration={"networkMode": "PUBLIC"},
-                )
-                ci_id = _extract_code_interpreter_id(resp)
-                logger.info("Created Code Interpreter: %s", ci_id)
-            except ClientError as e:
-                if e.response["Error"]["Code"] in ("ResourceAlreadyExistsException", "ValidationException"):
-                    logger.warning(
-                        "Code Interpreter creation returned error (likely already exists): %s",
-                        e,
-                    )
-                    existing = [
-                        c for c in client.list_code_interpreters().get("codeInterpreterSummaries", [])
-                        if c["name"] == name
-                    ]
-                    if existing:
-                        ci_id = existing[0]["codeInterpreterId"]
-                        logger.info(
-                            "Recovered existing Code Interpreter from list: %s",
-                            ci_id,
-                        )
-                    else:
-                        raise
-                else:
-                    raise
+            resp = client.create_code_interpreter(
+                name=name,
+                description=props.get(
+                    "Description", "Sandboxed Python for climate data chart generation"
+                ),
+                networkConfiguration={"networkMode": "PUBLIC"},
+            )
+            ci_id = _extract_code_interpreter_id(resp)
+            logger.info("Created Code Interpreter: %s", ci_id)
 
         _wait_active(
             lambda cid: _extract_code_interpreter_status(

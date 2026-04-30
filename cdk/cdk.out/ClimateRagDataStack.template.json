@@ -1,0 +1,194 @@
+{
+ "Description": "ClimateRAG — S3 bucket for FAISS vector index (long-lived)",
+ "Resources": {
+  "IndexBucketA89C8461": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "Id": "TransitionOldIndexToIA",
+       "Prefix": "index/",
+       "Status": "Enabled",
+       "Transitions": [
+        {
+         "StorageClass": "STANDARD_IA",
+         "TransitionInDays": 30
+        }
+       ]
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ClimateRagDataStack/IndexBucket/Resource"
+   }
+  },
+  "IndexBucketPolicy9D596238": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "IndexBucketA89C8461"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:*",
+       "Condition": {
+        "Bool": {
+         "aws:SecureTransport": "false"
+        }
+       },
+       "Effect": "Deny",
+       "Principal": {
+        "AWS": "*"
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "IndexBucketA89C8461",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "IndexBucketA89C8461",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "bedrock-agentcore.amazonaws.com"
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "IndexBucketA89C8461",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "IndexBucketA89C8461",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ],
+       "Sid": "AllowAgentCoreRuntimeReadIndex"
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ClimateRagDataStack/IndexBucket/Policy/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzI11DNQTCwv1k1OydbNyUzSqw4uSUzO1kksL44vNtardipNzk4t0XFOy4OyIFRAfk5mciVCGMKvBQn4l5YUlJbU6gRUlmTk5+kb6xmCkGJWcWamblFpXklmbqpeEIQGAM0hvgKAAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ClimateRagDataStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "IndexBucketName": {
+   "Description": "S3 bucket name for the FAISS vector index",
+   "Value": {
+    "Ref": "IndexBucketA89C8461"
+   },
+   "Export": {
+    "Name": "ClimateRag-IndexBucketName"
+   }
+  },
+  "IndexBucketArn": {
+   "Description": "S3 bucket ARN for the FAISS vector index",
+   "Value": {
+    "Fn::GetAtt": [
+     "IndexBucketA89C8461",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "ClimateRag-IndexBucketArn"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

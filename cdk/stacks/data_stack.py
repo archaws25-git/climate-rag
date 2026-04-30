@@ -36,21 +36,17 @@ class DataStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # ── S3 Bucket ────────────────────────────────────────────
-        # RemovalPolicy.RETAIN is deliberate: even if this stack is destroyed,
-        # the bucket (and the FAISS index inside it) is preserved.  You must
-        # manually empty and delete the bucket if you truly want it gone.
-        #
-        # For a clean full teardown run:
-        #   aws s3 rb s3://climate-rag-index-<account_id> --force
-        #   cdk destroy ClimateRagDataStack
+        # The index bucket is now destroyed with the stack during test teardown.
+        # Be careful: this will delete the FAISS index data when the stack is removed.
         self.index_bucket = s3.Bucket(
             self,
             "IndexBucket",
-            bucket_name=f"climate-rag-index-{self.account}",
+          #  bucket_name=f"climate-rag-index-{self.account}",
             encryption=s3.BucketEncryption.S3_MANAGED,       # SSE-S3 (AES-256)
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             versioned=False,                                   # Index is rebuilt wholesale
-            removal_policy=RemovalPolicy.RETAIN,               # ← Protect FAISS index
+            removal_policy=RemovalPolicy.DESTROY,              # ← Allow full teardown
+            #removal_policy=RemovalPolicy.RETAIN
             enforce_ssl=True,
             lifecycle_rules=[
                 s3.LifecycleRule(

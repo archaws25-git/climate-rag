@@ -156,37 +156,21 @@ def _handle_memory(request_type: str, physical_id: str, props: dict) -> dict:
             memory_id = existing[0]["memoryId"]
             logger.info("Memory already exists — reusing: %s", memory_id)
         else:
-            try:
-                resp = client.create_memory(
-                    name=name,
-                    description=props.get("Description", "ClimateRAG research memory"),
-                    eventExpiryDuration=int(props.get("EventExpiryDays", 30)),
-                    memoryStrategies=[{
-                        "semanticMemoryStrategy": {
-                            "name": "climateSemanticMemory",
-                            "namespaces": [
-                                "/strategies/{memoryStrategyId}/actors/{actorId}/"
-                            ],
-                        }
-                    }],
-                )
-                memory_id = _extract_memory_id(resp)
-                logger.info("Created Memory: %s", memory_id)
-            except ClientError as e:
-                if e.response["Error"]["Code"] in ("ResourceAlreadyExistsException", "ValidationException"):
-                    # Memory was created in a previous attempt; list and reuse it
-                    logger.warning("Memory creation returned error (likely already exists): %s", e)
-                    existing = [
-                        m for m in client.list_memories().get("memorySummaries", [])
-                        if m["name"] == name
-                    ]
-                    if existing:
-                        memory_id = existing[0]["memoryId"]
-                        logger.info("Recovered existing Memory from list: %s", memory_id)
-                    else:
-                        raise
-                else:
-                    raise
+            resp = client.create_memory(
+                name=name,
+                description=props.get("Description", "ClimateRAG research memory"),
+                eventExpiryDuration=int(props.get("EventExpiryDays", 30)),
+                memoryStrategies=[{
+                    "semanticMemoryStrategy": {
+                        "name": "climateSemanticMemory",
+                        "namespaces": [
+                            "/strategies/{memoryStrategyId}/actors/{actorId}/"
+                        ],
+                    }
+                }],
+            )
+            memory_id = _extract_memory_id(resp)
+            logger.info("Created Memory: %s", memory_id)
 
         _wait_active(
             lambda mid: _extract_memory_status(
@@ -204,10 +188,6 @@ def _handle_memory(request_type: str, physical_id: str, props: dict) -> dict:
         return _cfn_response(physical_id, {"MemoryId": physical_id})
 
     if request_type == "Delete":
-        # Idempotent delete: if physical_id is still PENDING, the resource was never created
-        if physical_id == "PENDING":
-            logger.info("Memory never created (physical_id=PENDING) — skipping delete")
-            return _cfn_response(physical_id, {})
         try:
             client.delete_memory(memoryId=physical_id)
             logger.info("Deleted Memory: %s", physical_id)
@@ -236,36 +216,15 @@ def _handle_code_interpreter(request_type: str, physical_id: str, props: dict) -
             ci_id = existing[0]["codeInterpreterId"]
             logger.info("Code Interpreter already exists — reusing: %s", ci_id)
         else:
-            try:
-                resp = client.create_code_interpreter(
-                    name=name,
-                    description=props.get(
-                        "Description", "Sandboxed Python for climate data chart generation"
-                    ),
-                    networkConfiguration={"networkMode": "PUBLIC"},
-                )
-                ci_id = _extract_code_interpreter_id(resp)
-                logger.info("Created Code Interpreter: %s", ci_id)
-            except ClientError as e:
-                if e.response["Error"]["Code"] in ("ResourceAlreadyExistsException", "ValidationException"):
-                    logger.warning(
-                        "Code Interpreter creation returned error (likely already exists): %s",
-                        e,
-                    )
-                    existing = [
-                        c for c in client.list_code_interpreters().get("codeInterpreterSummaries", [])
-                        if c["name"] == name
-                    ]
-                    if existing:
-                        ci_id = existing[0]["codeInterpreterId"]
-                        logger.info(
-                            "Recovered existing Code Interpreter from list: %s",
-                            ci_id,
-                        )
-                    else:
-                        raise
-                else:
-                    raise
+            resp = client.create_code_interpreter(
+                name=name,
+                description=props.get(
+                    "Description", "Sandboxed Python for climate data chart generation"
+                ),
+                networkConfiguration={"networkMode": "PUBLIC"},
+            )
+            ci_id = _extract_code_interpreter_id(resp)
+            logger.info("Created Code Interpreter: %s", ci_id)
 
         _wait_active(
             lambda cid: _extract_code_interpreter_status(
@@ -281,10 +240,6 @@ def _handle_code_interpreter(request_type: str, physical_id: str, props: dict) -
         return _cfn_response(physical_id, {"CodeInterpreterId": physical_id})
 
     if request_type == "Delete":
-        # Idempotent delete: if physical_id is still PENDING, the resource was never created
-        if physical_id == "PENDING":
-            logger.info("Code Interpreter never created (physical_id=PENDING) — skipping delete")
-            return _cfn_response(physical_id, {})
         try:
             client.delete_code_interpreter(codeInterpreterId=physical_id)
             logger.info("Deleted Code Interpreter: %s", physical_id)
@@ -339,10 +294,6 @@ def _handle_gateway(request_type: str, physical_id: str, props: dict) -> dict:
         return _cfn_response(physical_id, {"GatewayId": physical_id})
 
     if request_type == "Delete":
-        # Idempotent delete: if physical_id is still PENDING, the resource was never created
-        if physical_id == "PENDING":
-            logger.info("Gateway never created (physical_id=PENDING) — skipping delete")
-            return _cfn_response(physical_id, {})
         try:
             _delete_gateway_targets(client, physical_id)
             client.delete_gateway(gatewayId=physical_id)
