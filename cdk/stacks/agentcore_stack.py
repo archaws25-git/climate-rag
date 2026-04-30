@@ -62,34 +62,8 @@ _HANDLER_DIR = os.path.join(
 
 
 class AgentCoreStack(Stack):
-    """AgentCore Memory, Code Interpreter, and Gateway via Custom Resources."""
-"""
-Design notes
-────────────
-Custom Resource with shared Lambda handler:
-  - All three AgentCore resources (Memory, Code Interpreter, Gateway) are created via a single Lambda-backed Custom Resource.  
-    The Lambda function inspects the "ResourceType" property to determine  which AgentCore API calls to make. 
-    This keeps the number of Lambda functions minimal and centralises the provisioning logic, including the _wait_active() polling loop for Memory and Code Interpreter.
-  - The Lambda function has a generous timeout of 14 minutes to accommodate the sequential provisioning of all three resources, 
-    especially the potential 5-minute wait for Memory and Code Interpreter to become ACTIVE.
-  - The custom resource properties include all necessary information for provisioning, such as the Gateway's IAM role ARN 
-    and the Lambda ARNs for the NASA and NOAA targets. This allows the entire AgentCore setup to be encapsulated within this stack without external dependencies.
-IAM least-privilege:
-  - The Lambda execution role has only the AWSLambdaBasicExecutionRole managed policy for CloudWatch Logs, 
-    plus explicit permissions to call the Bedrock AgentCore control-plane APIs (create/get/list/delete) and iam:PassRole for the Gateway role.  
-    It does not have any S3 or  Bedrock permissions, as it only needs to manage AgentCore resources.
-  - The Gateway role (created in the setup_all.py script) has permission to invoke the two Lambda functions for NASA and NOAA API access, 
-    and its trust policy is scoped to the Bedrock AgentCore service principal.
-  - The custom resource Lambda does not have permission to invoke the Gateway role or the NASA/NOAA Lambdas directly; 
-    it only provisions the Gateway with the correct role and target ARNs.
-Resource dependencies:   
-    - The Gateway custom resource depends on both the Memory and Code Interpreter resources being ACTIVE first, 
-      to ensure the agent has its context store and code execution environment ready before the Gateway is set up. 
-      This is enforced via CDK's construct dependencies.
-    - The provisioning sequence is Memory → Code Interpreter → Gateway, which is important to ensure the agent's core capabilities are in place before exposing the Gateway tools.      
-
-"""
-    def __init__(
+    
+   def __init__(
         self,
         scope: Construct,
         construct_id: str,

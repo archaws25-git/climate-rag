@@ -1,0 +1,51 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "c9a2bad11b3f446ef3608d4eafe61e92e639c367258e5c944f91e9e99d83e164": {
+      "displayName": "AgentCoreCRLambda/Code",
+      "source": {
+        "path": "asset.c9a2bad11b3f446ef3608d4eafe61e92e639c367258e5c944f91e9e99d83e164",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-538ce085": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "c9a2bad11b3f446ef3608d4eafe61e92e639c367258e5c944f91e9e99d83e164.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "07a90cc3efdfc34da22208dcd9d211f06f5b0e01b21e778edc7c3966b1f61d57": {
+      "displayName": "AgentCoreCRProvider/framework-onEvent/Code",
+      "source": {
+        "path": "asset.07a90cc3efdfc34da22208dcd9d211f06f5b0e01b21e778edc7c3966b1f61d57",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1-520abad5": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "07a90cc3efdfc34da22208dcd9d211f06f5b0e01b21e778edc7c3966b1f61d57.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "b14b59fe54d06e34327c5e0b842482bef40dbf02d91f1a7769a9b8d0861640be": {
+      "displayName": "ClimateRagAgentCoreStack Template",
+      "source": {
+        "path": "ClimateRagAgentCoreStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1-76fd8502": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "b14b59fe54d06e34327c5e0b842482bef40dbf02d91f1a7769a9b8d0861640be.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

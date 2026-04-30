@@ -1,0 +1,357 @@
+{
+  "/ClimateRagAgentCoreStack": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/MemoryId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MemoryId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/CodeInterpreterId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CodeInterpreterId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/GatewayId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "GatewayId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentEnvVars": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentEnvVars"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in aws-cdk-lib...",
+        "C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:542 (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:5420)",
+        "Kernel._Kernel_ensureSync (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:69597)",
+        "Kernel.invoke (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:54153)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in aws-cdk-lib...",
+        "C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:542 (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:5420)",
+        "Kernel._Kernel_ensureSync (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:69597)",
+        "Kernel.invoke (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:54153)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreCRLambdaRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreCRLambdaRoleC9D3FC4D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Role2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreCRLambda/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreCRLambda1ED64769"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Function2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreMemory/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreMemory"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new CustomResource2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreCodeInterpreter/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreCodeInterpreter"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new CustomResource2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreGateway/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreGateway"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new CustomResource2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/MemoryIdParam/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MemoryIdParam782275C8"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new StringParameter2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/CodeInterpreterIdParam/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CodeInterpreterIdParam8D1C7ECF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new StringParameter2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/GatewayIdParam/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "GatewayIdParam4B182691"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new StringParameter2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in aws-cdk-lib...",
+        "C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:542 (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:5420)",
+        "Kernel._Kernel_ensureSync (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:69597)",
+        "Kernel.invoke (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:54153)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreCRLambdaRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreCRLambdaRoleDefaultPolicy47665A64"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.<anonymous> in aws-cdk-lib...",
+        "C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:542 (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:5420)",
+        "Kernel._Kernel_ensureSync (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:69597)",
+        "Kernel.invoke (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:54153)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreCRProvider/framework-onEvent/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreCRProviderframeworkonEventD7B39628"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Provider2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreCRProvider/framework-onEvent/ServiceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreCRProviderframeworkonEventServiceRoleF9DD7648"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Provider2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ClimateRagAgentCoreStack/AgentCoreCRProvider/framework-onEvent/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AgentCoreCRProviderframeworkonEventServiceRoleDefaultPolicyEF0843AA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Provider2 in aws-cdk-lib...",
+        "Kernel._Kernel_create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:61100)",
+        "Kernel.create (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:51863)",
+        "KernelHost.processRequest (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:212493)",
+        "KernelHost.run (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211548)",
+        "Immediate._onImmediate (C:\\Users\\archs\\AppData\\Local\\Temp\\tmpm388ltu0\\lib\\program.js:1:211592)",
+        "...node internals..."
+      ]
+    }
+  ]
+}
