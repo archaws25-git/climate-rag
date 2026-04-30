@@ -16,16 +16,19 @@ tool — run them in order.
 # Install CDK CLI (one-time)
 npm install -g aws-cdk
 
+# Note: You WILL need to set-up your AWS credentials (your AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN for the current session first )
 # Bootstrap CDK for your account/region (one-time)
 cdk bootstrap aws://$(aws sts get-caller-identity --query Account --output text)/us-east-1
 
 # Set up CDK Python environment
-cd cdk/
+
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 # Deploy all three stacks (~12 min on first run)
-cdk deploy --all
+cd cdk/
+# Change the stage name to prod once it is ready for production
+cdk deploy --all -c stage=dev
 ```
 
 ### Phase 2 — Data Ingestion

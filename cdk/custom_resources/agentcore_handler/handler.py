@@ -48,7 +48,7 @@ import time
 
 import boto3
 from botocore.exceptions import ClientError
-
+import re
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -58,9 +58,31 @@ REGION = "us-east-1"
 def get_client():
     return boto3.client("bedrock-agentcore-control", region_name=REGION)
 
+MEMORY_ID_PATTERN = re.compile(
+    r"^[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}$"
+)
+
+
+def _validate_memory_id(memory_id: str) -> str:
+    if not memory_id:
+        raise RuntimeError("memory_id is empty or None")
+
+    if not MEMORY_ID_PATTERN.match(memory_id):
+        raise RuntimeError(
+            f"Invalid memory_id format returned by API: {memory_id}"
+        )
+
+    return memory_id
 
 # ── CloudFormation entry point ────────────────────────────────────────────────
-
+"""
+This Lambda function serves as the CloudFormation Custom Resource handler for provisioning AgentCore resources that lack native CloudFormation support. 
+It handles the lifecycle events (Create, Update, Delete) for AgentCore Memory instances, Code Interpreters, and Gateways. 
+The function uses the Bedrock AgentCore Control Plane API via boto3 to manage these resources and implements idempotent provisioning logic to ensure stable deployments.
+The handler function dispatches based on the ResourceType specified in the CloudFormation template, allowing it to manage multiple resource types within a single function.
+The function also includes robust error handling and logging to facilitate debugging and ensure that CloudFormation receives appropriate success or failure signals 
+based on the outcome of the provisioning operations.
+"""
 def handler(event, context):
     logger.info("Event: %s", json.dumps(event))
 
@@ -117,19 +139,37 @@ def _cfn_response(physical_id: str, data: dict) -> dict:
 
 
 def _extract_memory_id(resp: dict) -> str:
-    return resp.get("memoryId") or resp.get("memory", {}).get("memoryId")
+    return (
+        resp.get("memoryId")
+        or resp.get("memoryIdentifier")
+        or resp.get("memory", {}).get("memoryId")
+        or resp.get("memory", {}).get("memoryIdentifier")
+    )
 
 
 def _extract_memory_status(resp: dict) -> str:
-    return resp.get("status") or resp.get("memory", {}).get("status")
+    return (
+        resp.get("status")
+        or resp.get("memory", {}).get("status")
+        or resp.get("memory", {}).get("memoryStatus")
+    )
 
 
 def _extract_code_interpreter_id(resp: dict) -> str:
-    return resp.get("codeInterpreterId") or resp.get("codeInterpreter", {}).get("codeInterpreterId")
+    return (
+        resp.get("codeInterpreterId")
+        #or resp.get("codeInterpreterIdentifier")
+        or resp.get("codeInterpreter", {}).get("codeInterpreterId")
+       # or resp.get("codeInterpreter", {}).get("codeInterpreterIdentifier")
+    )
 
 
 def _extract_code_interpreter_status(resp: dict) -> str:
-    return resp.get("status") or resp.get("codeInterpreter", {}).get("status")
+    return (
+        resp.get("status")
+        or resp.get("codeInterpreter", {}).get("status")
+        or resp.get("codeInterpreter", {}).get("codeInterpreterStatus")
+    )
 
 
 def _extract_gateway_id(resp: dict) -> str:
@@ -148,12 +188,22 @@ def _handle_memory(request_type: str, physical_id: str, props: dict) -> dict:
 
     if request_type == "Create":
         # Idempotent: if a Memory with this name already exists, reuse it.
-        existing = [
-            m for m in client.list_memories().get("memorySummaries", [])
-            if m["name"] == name
-        ]
+       # existing = [
+       #     m for m in client.list_memories().get("memorySummaries", [])
+       #     if m["name"] == name
+       # ]
+        list_resp = client.list_memories()
+
+        logger.info(
+            "******************************\nRaw list_memories response: %s",
+            json.dumps(list_resp, default=str)
+        )
+
+        existing = [ m for m in list_resp.get("memorySummaries", []) if m["name"] == name ]      
         if existing:
-            memory_id = existing[0]["memoryId"]
+            logger.info( "******************************\nFirst matching memory summary: %s",
+            json.dumps(existing[0], default=str))
+            memory_id = existing[0].get("memoryId") or existing[0].get("memoryIdentifier")
             logger.info("Memory already exists — reusing: %s", memory_id)
         else:
             try:
@@ -170,7 +220,9 @@ def _handle_memory(request_type: str, physical_id: str, props: dict) -> dict:
                         }
                     }],
                 )
-                memory_id = _extract_memory_id(resp)
+                logger.info("******************************\nThe resp is: %s", json.dumps(resp, default=str))
+               # memory_id = _extract_memory_id(resp)
+                memory_id = _validate_memory_id(_extract_memory_id(resp))
                 logger.info("Created Memory: %s", memory_id)
             except ClientError as e:
                 if e.response["Error"]["Code"] in ("ResourceAlreadyExistsException", "ValidationException"):
@@ -181,7 +233,7 @@ def _handle_memory(request_type: str, physical_id: str, props: dict) -> dict:
                         if m["name"] == name
                     ]
                     if existing:
-                        memory_id = existing[0]["memoryId"]
+                        memory_id = _validate_memory_id(existing[0].get("memoryId") or existing[0].get("memoryIdentifier"))
                         logger.info("Recovered existing Memory from list: %s", memory_id)
                     else:
                         raise
@@ -233,7 +285,7 @@ def _handle_code_interpreter(request_type: str, physical_id: str, props: dict) -
             if c["name"] == name
         ]
         if existing:
-            ci_id = existing[0]["codeInterpreterId"]
+            ci_id = existing[0].get("codeInterpreterId") or existing[0].get("codeInterpreterIdentifier")
             logger.info("Code Interpreter already exists — reusing: %s", ci_id)
         else:
             try:
@@ -257,7 +309,7 @@ def _handle_code_interpreter(request_type: str, physical_id: str, props: dict) -
                         if c["name"] == name
                     ]
                     if existing:
-                        ci_id = existing[0]["codeInterpreterId"]
+                        ci_id = existing[0].get("codeInterpreterId") or existing[0].get("codeInterpreterIdentifier")
                         logger.info(
                             "Recovered existing Code Interpreter from list: %s",
                             ci_id,
@@ -267,9 +319,15 @@ def _handle_code_interpreter(request_type: str, physical_id: str, props: dict) -
                 else:
                     raise
 
+        if not ci_id:
+            raise RuntimeError(
+                "Unable to determine Code Interpreter ID from create/list response: "
+                f"{resp if 'resp' in locals() else existing}"
+            )
+
         _wait_active(
             lambda cid: _extract_code_interpreter_status(
-                client.get_code_interpreter(codeInterpreterId=cid)
+                client.get_code_interpreter(codeInterpreterIdentifier=cid)
             ),
             ci_id,
             "CodeInterpreter",
@@ -286,7 +344,7 @@ def _handle_code_interpreter(request_type: str, physical_id: str, props: dict) -
             logger.info("Code Interpreter never created (physical_id=PENDING) — skipping delete")
             return _cfn_response(physical_id, {})
         try:
-            client.delete_code_interpreter(codeInterpreterId=physical_id)
+            client.delete_code_interpreter(codeInterpreterIdentifier=physical_id)
             logger.info("Deleted Code Interpreter: %s", physical_id)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":

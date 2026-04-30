@@ -64,10 +64,10 @@ def create_memory(args):
                 }
             }]
         )
-        memory_id = resp["memoryId"]
+        memory_id = resp["memory"]["memoryId"]
         print(f"Created memory: {memory_id}")
         wait_active(
-            lambda mid: client.get_memory(memoryId=mid)["status"],
+            lambda mid: client.get_memory(memoryId=mid)["memory"]["status"],
             memory_id, "Memory"
         )
 
@@ -114,11 +114,12 @@ def create_code_interpreter(args):
             description="Sandboxed Python for climate data chart generation",
             networkConfiguration={"networkMode": "PUBLIC"}
         )
-        ci_id = resp["codeInterpreterId"]
+        ci_id = resp.get("codeInterpreterId") or resp.get("codeInterpreter", {}).get("codeInterpreterId")
         print(f"Created Code Interpreter: {ci_id}")
         wait_active(
             lambda cid: client.get_code_interpreter(
-                codeInterpreterIdentifier=cid)["status"],
+                codeInterpreterIdentifier=cid).get("status") or client.get_code_interpreter(
+                codeInterpreterIdentifier=cid).get("codeInterpreter", {}).get("status"),
             ci_id, "Code Interpreter"
         )
 
@@ -160,8 +161,6 @@ def create_gateway(args):
         gw_id = existing[0]["gatewayId"]
         print(f"Gateway already exists: {gw_id}")
     else:
-        # Small delay to ensure IAM role has propagated
-        time.sleep(15)
         resp = client.create_gateway(
             name=name,
             description="Gateway for climate data APIs (NASA POWER, NOAA NCEI)",
@@ -171,10 +170,10 @@ def create_gateway(args):
             protocolConfiguration={"mcp": {"searchType": "SEMANTIC"}},
             exceptionLevel="DEBUG",
         )
-        gw_id = resp["gatewayId"]
+        gw_id = resp.get("gatewayId") or resp.get("gateway", {}).get("gatewayId")
         print(f"Created Gateway: {gw_id}")
         wait_active(
-            lambda gid: client.get_gateway(gatewayIdentifier=gid)["status"],
+            lambda gid: client.get_gateway(gatewayIdentifier=gid).get("status") or client.get_gateway(gatewayIdentifier=gid).get("gateway", {}).get("status"),
             gw_id, "Gateway"
         )
 

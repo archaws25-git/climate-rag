@@ -230,7 +230,7 @@ def run_evaluation():
 
         # Flag queries that fall below the project's target thresholds
         # (correctness ≥ 80 % → score ≥ 4, relevance ≥ 85 % → score ≥ 4.25,
-        #  which we round to 4 for the 1-5 scale)
+        #  which is rounded to 4 for the 1-5 scale)
         failures = [
             r for r in successful
             if r["scores"]["correctness"] < 4 or r["scores"]["relevance"] < 4

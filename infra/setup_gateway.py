@@ -18,7 +18,7 @@ def create_gateway():
         protocolConfiguration={"mcp": {}},
     )
 
-    gateway_id = resp["gatewayId"]
+    gateway_id = resp.get("gatewayId") or resp.get("gateway", {}).get("gatewayId")
     print(f"Gateway created. ID: {gateway_id}")
     return gateway_id
 
