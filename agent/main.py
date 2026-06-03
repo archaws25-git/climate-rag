@@ -1,20 +1,21 @@
 """ClimateRAG — Strands Agent main entry point."""
 
-import os
 import json
+import os
 import uuid
 from pathlib import Path
 
 from strands import Agent
 from strands.models.bedrock import BedrockModel
 
-from tools.rag_tool import search_climate_data
 from tools.chart_tool import generate_chart
+from tools.rag_tool import search_climate_data
 
 # Optional: Memory tools (require bedrock-agentcore SDK)
 _memory_available = False
 try:
-    from tools.memory_tool import recall_research_context, get_recent_turns, save_turn
+    from tools.memory_tool import get_recent_turns, recall_research_context, save_turn
+
     _memory_available = True
 except ImportError:
     pass
@@ -40,6 +41,7 @@ agent = Agent(
 def handle_request(prompt: str, session_id: str = None, actor_id: str = "default"):
     """Handle a single request from the UI or AgentCore Runtime."""
     import glob as _glob
+
     session_id = session_id or str(uuid.uuid4())
 
     if _memory_available and os.environ.get("CLIMATE_RAG_MEMORY_ID"):
@@ -74,6 +76,7 @@ def lambda_handler(event, context=None):
 
 if __name__ == "__main__":
     import sys
+
     query = " ".join(sys.argv[1:]) or "What is the global temperature trend?"
     result = handle_request(query)
     print(result["response"])

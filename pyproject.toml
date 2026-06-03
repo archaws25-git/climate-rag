@@ -17,6 +17,19 @@ python_version = "3.12"
 ignore_missing_imports = true
 warn_unused_configs = true
 
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["agent", "gateway", "ingest", "cdk/custom_resources"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
 [tool.coverage.run]
 source = ["agent", "ingest", "gateway", "cdk/custom_resources"]
 omit = ["tests/*", ".venv/*", "ingest/ingest_gistemp.py", "ingest/ingest_power.py"]

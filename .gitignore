@@ -1,12 +1,66 @@
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ── Virtual Environments ─────────────────────────────────────────
+.venv/
+.venv-agent/
+venv/
+ENV/
+
+# ── Testing & Coverage ───────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+bandit-report.json
+
+# ── Type Checking ────────────────────────────────────────────────
+.mypy_cache/
+
+# ── IDE & Editor ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── CDK ──────────────────────────────────────────────────────────
+cdk/cdk.out/
+cdk.out/
+
+# ── Terraform (deprecated, kept for safety) ──────────────────────
 terraform/*.tfstate*
 terraform/.terraform.lock.hcl
-terraform/.terraform*/*
-terraform/climate_rag_plan 
-.venv*/*
-*/__pycache__/*
-*.pyc
-*.pyo
-*.pyd
-.mypy_cache/*
-.pytest_cache/*
-cdk/cdk.o*/*
+terraform/.terraform/
+terraform/climate_rag_plan
+
+# ── Environment & Secrets ────────────────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+
+# ── AWS ──────────────────────────────────────────────────────────
+.aws/
+
+# ── Data & Build Artifacts ───────────────────────────────────────
+*.faiss
+*.index
+/tmp/
+dist/
+build/
+*.egg-info/
+
+# ── OS Files ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Logs ─────────────────────────────────────────────────────────
+*.log
+
+# ── Jupyter Notebooks (checkpoints) ─────────────────────────────
+.ipynb_checkpoints/

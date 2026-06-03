@@ -20,11 +20,13 @@ Provider framework timing (set in agentcore_stack.py):
 """
 
 import logging
+
 import boto3
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
 
 # ── Boto3 client ─────────────────────────────────────────────────────
 # bedrock-agentcore-control is the control-plane endpoint.
@@ -46,9 +48,9 @@ def on_event(event, context):
     logger.info("on_event: %s %s physical_id=%s", request_type, resource_type, physical_id)
 
     dispatch = {
-        "Memory":          _on_event_memory,
+        "Memory": _on_event_memory,
         "CodeInterpreter": _on_event_code_interpreter,
-        "Gateway":         _on_event_gateway,
+        "Gateway": _on_event_gateway,
     }
 
     fn = dispatch.get(resource_type)
@@ -77,9 +79,9 @@ def is_complete(event, context):
         return {"IsComplete": True}
 
     dispatch = {
-        "Memory":          _is_complete_memory,
+        "Memory": _is_complete_memory,
         "CodeInterpreter": _is_complete_code_interpreter,
-        "Gateway":         _is_complete_gateway,
+        "Gateway": _is_complete_gateway,
     }
 
     fn = dispatch.get(resource_type)
@@ -164,10 +166,16 @@ def _on_event_code_interpreter(client, request_type, physical_id, props):
             if e.response["Error"]["Code"] != "ResourceNotFoundException":
                 raise
             logger.info("Code Interpreter already gone: %s", physical_id)
-        return {"PhysicalResourceId": physical_id, "Data": {"CodeInterpreterId": physical_id}}
+        return {
+            "PhysicalResourceId": physical_id,
+            "Data": {"CodeInterpreterId": physical_id},
+        }
 
     # Update — nothing to change for now
-    return {"PhysicalResourceId": physical_id, "Data": {"CodeInterpreterId": physical_id}}
+    return {
+        "PhysicalResourceId": physical_id,
+        "Data": {"CodeInterpreterId": physical_id},
+    }
 
 
 def _is_complete_code_interpreter(client, physical_id):
@@ -254,29 +262,33 @@ def _create_gateway_targets(client, gw_id, targets):
         client.create_gateway_target(
             gatewayIdentifier=gw_id,
             name=t["name"],
-            targetConfiguration={"mcp": {"lambda": {
-                "lambdaArn": t["lambda_arn"],
-                "toolSchema": {"inlinePayload": [{
-                    "name": t["tool_name"],
-                    "description": t["tool_description"],
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": t["properties"],
-                        "required": t["required"],
-                    },
-                }]},
-            }}},
-            credentialProviderConfigurations=[
-                {"credentialProviderType": "GATEWAY_IAM_ROLE"}
-            ],
+            targetConfiguration={
+                "mcp": {
+                    "lambda": {
+                        "lambdaArn": t["lambda_arn"],
+                        "toolSchema": {
+                            "inlinePayload": [
+                                {
+                                    "name": t["tool_name"],
+                                    "description": t["tool_description"],
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": t["properties"],
+                                        "required": t["required"],
+                                    },
+                                }
+                            ]
+                        },
+                    }
+                }
+            },
+            credentialProviderConfigurations=[{"credentialProviderType": "GATEWAY_IAM_ROLE"}],
         )
 
 
 def _delete_gateway_targets(client, gw_id):
     try:
-        targets = client.list_gateway_targets(
-            gatewayIdentifier=gw_id
-        ).get("gatewayTargetSummaries", [])
+        targets = client.list_gateway_targets(gatewayIdentifier=gw_id).get("gatewayTargetSummaries", [])
         for t in targets:
             client.delete_gateway_target(
                 gatewayIdentifier=gw_id,

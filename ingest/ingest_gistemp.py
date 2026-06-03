@@ -26,20 +26,36 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
     header = None
     for row in reader:
         if row and row[0].strip().isdigit():
-            header_row = row
             break
         if row and "Year" in row[0]:
             header = row
             continue
 
     if not header:
-        header = ["Year", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-                  "J-D", "D-N", "DJF", "MAM", "JJA", "SON"]
+        header = [
+            "Year",
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+            "J-D",
+            "D-N",
+            "DJF",
+            "MAM",
+            "JJA",
+            "SON",
+        ]
 
     # Group by decade
     decades = {}
-    all_rows = []
 
     # Re-read from the numeric rows
     reader = csv.reader(io.StringIO(csv_text))
@@ -80,19 +96,21 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
         for r in records:
             text += f"  {r['year']}: {r['annual_anomaly']:+.3f}°C\n"
 
-        chunks.append({
-            "chunk_id": f"gistemp_global_{decade}",
-            "text": text,
-            "metadata": {
-                "dataset": "GISTEMP_v4",
-                "region": "Global",
-                "decade": decade,
-                "time_range": f"{min(years)}-{max(years)}",
-                "unit": "degrees_C_anomaly",
-                "baseline": "1951-1980",
-                "avg_anomaly": round(avg, 3),
-            },
-        })
+        chunks.append(
+            {
+                "chunk_id": f"gistemp_global_{decade}",
+                "text": text,
+                "metadata": {
+                    "dataset": "GISTEMP_v4",
+                    "region": "Global",
+                    "decade": decade,
+                    "time_range": f"{min(years)}-{max(years)}",
+                    "unit": "degrees_C_anomaly",
+                    "baseline": "1951-1980",
+                    "avg_anomaly": round(avg, 3),
+                },
+            }
+        )
 
     return chunks
 

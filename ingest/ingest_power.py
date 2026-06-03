@@ -3,8 +3,8 @@
 import json
 import os
 import time
-import urllib.request
 import urllib.parse
+import urllib.request
 
 OUTPUT_DIR = os.environ.get("CHUNK_OUTPUT_DIR", "/tmp/climate-rag-chunks")
 
@@ -75,26 +75,28 @@ def chunk_power_data(region_name, region_info, data) -> list[dict]:
             f"NASA POWER Monthly Data — {region_name} ({region_info['city']})\n"
             f"Coordinates: {region_info['lat']}°N, {region_info['lon']}°W\n"
             f"Decade: {decade} | Period: {min(years)}-{max(years)}\n"
-            f"Average temperature (T2M): {avg:.1f}°C ({avg * 9/5 + 32:.1f}°F)\n"
+            f"Average temperature (T2M): {avg:.1f}°C ({avg * 9 / 5 + 32:.1f}°F)\n"
             f"Range: {min(info['temps']):.1f}°C to {max(info['temps']):.1f}°C\n"
             f"Observations: {len(info['temps'])} monthly records\n"
         )
 
-        chunks.append({
-            "chunk_id": f"power_{region_name.lower()}_{decade}",
-            "text": text,
-            "metadata": {
-                "dataset": "NASA_POWER",
-                "region": region_name,
-                "city": region_info["city"],
-                "lat": region_info["lat"],
-                "lon": region_info["lon"],
-                "decade": decade,
-                "time_range": f"{min(years)}-{max(years)}",
-                "avg_temp_c": round(avg, 1),
-                "parameters": PARAMETERS,
-            },
-        })
+        chunks.append(
+            {
+                "chunk_id": f"power_{region_name.lower()}_{decade}",
+                "text": text,
+                "metadata": {
+                    "dataset": "NASA_POWER",
+                    "region": region_name,
+                    "city": region_info["city"],
+                    "lat": region_info["lat"],
+                    "lon": region_info["lon"],
+                    "decade": decade,
+                    "time_range": f"{min(years)}-{max(years)}",
+                    "avg_temp_c": round(avg, 1),
+                    "parameters": PARAMETERS,
+                },
+            }
+        )
 
     return chunks
 

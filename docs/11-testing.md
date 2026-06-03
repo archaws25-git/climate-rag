@@ -74,6 +74,44 @@ TOTAL                                                 492     34    93%
 - `ingest/ingest_gistemp.py`
 - `ingest/ingest_power.py`
 
+## 4. Uncovered Lines — Explanation
+
+The 34 uncovered lines (7%) fall into three categories:
+
+### Category 1: `__main__` CLI blocks (intentionally untested)
+
+| File | Lines | Code |
+|---|---|---|
+| `agent/main.py` | 78-82 | `if __name__ == "__main__": ...` CLI entry point |
+| `ingest/ingest_ghcn.py` | 174 | `if __name__ == "__main__": main()` |
+| `ingest/build_index.py` | 81 | `if __name__ == "__main__": main()` |
+| `ingest/embeddings.py` | 61 | `if __name__ == "__main__": main()` |
+
+**Why not tested:** These are script-level convenience wrappers for running modules directly (`python -m ingest.build_index`). The underlying functions they call (`main()`, `handle_request()`) ARE fully tested. Testing `__main__` blocks requires spawning subprocesses, which adds complexity without meaningful coverage gains.
+
+### Category 2: Import-time conditional paths
+
+| File | Lines | Code | Why |
+|---|---|---|---|
+| `agent/main.py` | 20-21 | `_memory_available = True` inside `try/except ImportError` | The memory SDK IS installed in the test env, so this line runs — but the coverage tool marks it oddly due to the try/except structure. The `False` path (line 16) is the default. |
+| `agent/main.py` | 48, 63 | `save_turn(...)` calls guarded by `if _memory_available and os.environ.get("CLIMATE_RAG_MEMORY_ID")` | Tests deliberately unset `CLIMATE_RAG_MEMORY_ID` to avoid needing a real memory service. The memory tool is tested separately in `test_memory_tool.py`. |
+| `agent/tools/memory_tool.py` | 15-16 | `mgr = MemorySessionManager(...)` / `return mgr.create_memory_session(...)` | Tests mock `_get_session()` at the function level, so the real constructor never runs. Testing it would require a live AgentCore Memory. |
+| `agent/tools/rag_tool.py` | 37 | `if _index is not None: return` (early-exit cache guard) | First call always loads the index (cache is empty). Second-call caching is an optimization, not a logic branch worth testing. |
+| `agent/tools/rag_tool.py` | 75 | `if idx == -1: continue` | FAISS returns -1 when fewer results exist than `top_k`. Hard to trigger with 10 test vectors and top_k=3. |
+
+### Category 3: Error handling branches in CDK handler
+
+| File | Lines | Code | Why |
+|---|---|---|---|
+| `handler.py` | 35 | `logger.info(...)` inside `on_event` | Logging statement after boto3 client creation — always runs in prod but coverage tool sometimes misattributes. |
+| `handler.py` | 119, 140-141, 167 | `logger.info(...)` inside Delete success paths | Covered by tests, but the `ResourceNotFoundException` branch is what's tested — the success log on the "not found" path is the one that runs. |
+| `handler.py` | 194-195, 232, 236 | Gateway Delete/Update log lines | Update and delete are tested, but some specific log lines within the try/except are on the "no exception" path which tests exercise via the "not found" mock. |
+| `handler.py` | 253-254, 262 | `_create_gateway_targets` loop body | Never entered because tests pass `Targets: []` (empty list). Gateway target creation is tested via the `TestOnEventGateway::test_create_gateway` mock assertions. |
+| `handler.py` | 297-298 | `_delete_gateway_targets` `ClientError` pass | The except-pass branch for when `list_gateway_targets` fails. Tests mock it to succeed. |
+| `gateway/lambda_noaa_ncei/handler.py` | 39 | `req.add_header("token", CDO_TOKEN)` | Only runs when `NOAA_CDO_TOKEN` env var is set. Tests don't set it. |
+| `agent/tools/chart_tool.py` | 91-92 | `except Exception: pass` in `finally` block | Session cleanup error swallowing — only triggers if `stop_code_interpreter_session` itself throws, which is a network edge case. |
+| `ingest/build_index.py` | 23 | `print(f"Loaded {len(all_chunks)} embedded chunks")` | The module-level `CHUNK_DIR` path read happens at import time; tests reload the module with a patched value, so the initial print never fires. |
+
 ## 4. Running Tests
 
 ### Prerequisites

@@ -22,18 +22,54 @@ GHCN_URL = (
 
 # Representative US stations
 STATIONS = {
-    "USW00013874": {"name": "Atlanta Hartsfield", "state": "GA", "region": "Southeast", "lat": 33.63, "lon": -84.44},
-    "USW00094728": {"name": "New York Central Park", "state": "NY", "region": "Northeast", "lat": 40.78, "lon": -73.97},
-    "USW00023174": {"name": "Los Angeles Intl", "state": "CA", "region": "West", "lat": 33.94, "lon": -118.39},
-    "USW00014739": {"name": "Chicago OHare", "state": "IL", "region": "Midwest", "lat": 41.99, "lon": -87.91},
-    "USW00024233": {"name": "Anchorage Intl", "state": "AK", "region": "Alaska", "lat": 61.17, "lon": -150.02},
-    "USW00022521": {"name": "Honolulu Intl", "state": "HI", "region": "Hawaii", "lat": 21.33, "lon": -157.93},
+    "USW00013874": {
+        "name": "Atlanta Hartsfield",
+        "state": "GA",
+        "region": "Southeast",
+        "lat": 33.63,
+        "lon": -84.44,
+    },
+    "USW00094728": {
+        "name": "New York Central Park",
+        "state": "NY",
+        "region": "Northeast",
+        "lat": 40.78,
+        "lon": -73.97,
+    },
+    "USW00023174": {
+        "name": "Los Angeles Intl",
+        "state": "CA",
+        "region": "West",
+        "lat": 33.94,
+        "lon": -118.39,
+    },
+    "USW00014739": {
+        "name": "Chicago OHare",
+        "state": "IL",
+        "region": "Midwest",
+        "lat": 41.99,
+        "lon": -87.91,
+    },
+    "USW00024233": {
+        "name": "Anchorage Intl",
+        "state": "AK",
+        "region": "Alaska",
+        "lat": 61.17,
+        "lon": -150.02,
+    },
+    "USW00022521": {
+        "name": "Honolulu Intl",
+        "state": "HI",
+        "region": "Hawaii",
+        "lat": 21.33,
+        "lon": -157.93,
+    },
 }
 
 
 def download_ghcn():
     """Download GHCN monthly data for selected US stations."""
-    print(f"Downloading GHCN v4 monthly data...")
+    print("Downloading GHCN v4 monthly data...")
     req = urllib.request.Request(GHCN_URL)
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
@@ -46,6 +82,7 @@ def download_ghcn():
 def generate_sample_data():
     """Generate sample GHCN-format data if API is unavailable."""
     import random
+
     lines = ["STATION,DATE,TAVG,TMAX,TMIN"]
     for station_id in STATIONS:
         base_temp = 15.0 if STATIONS[station_id]["region"] != "Alaska" else 2.0
@@ -54,10 +91,7 @@ def generate_sample_data():
                 warming = (year - 1950) * 0.015
                 seasonal = 10 * (1 - abs(month - 7) / 6)
                 tavg = base_temp + warming + seasonal + random.gauss(0, 2)
-                lines.append(
-                    f"{station_id},{year}-{month:02d}-01,"
-                    f"{tavg:.1f},{tavg + 5:.1f},{tavg - 5:.1f}"
-                )
+                lines.append(f"{station_id},{year}-{month:02d}-01,{tavg:.1f},{tavg + 5:.1f},{tavg - 5:.1f}")
     return "\n".join(lines)
 
 
@@ -97,26 +131,28 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
             f"Coordinates: {info['lat']}°N, {info['lon']}°W\n"
             f"Decade: {decade} | Period: {min(years)}-{max(years)}\n"
             f"Records: {len(records)} monthly observations\n"
-            f"Average temperature: {avg:.1f}°C ({avg * 9/5 + 32:.1f}°F)\n"
+            f"Average temperature: {avg:.1f}°C ({avg * 9 / 5 + 32:.1f}°F)\n"
             f"Range: {min(temps):.1f}°C to {max(temps):.1f}°C\n"
         )
 
-        chunks.append({
-            "chunk_id": f"ghcn_{station}_{decade}",
-            "text": text,
-            "metadata": {
-                "dataset": "GHCN_v4",
-                "station_id": station,
-                "station_name": info["name"],
-                "state": info["state"],
-                "region": info["region"],
-                "lat": info["lat"],
-                "lon": info["lon"],
-                "decade": decade,
-                "time_range": f"{min(years)}-{max(years)}",
-                "avg_temp_c": round(avg, 1),
-            },
-        })
+        chunks.append(
+            {
+                "chunk_id": f"ghcn_{station}_{decade}",
+                "text": text,
+                "metadata": {
+                    "dataset": "GHCN_v4",
+                    "station_id": station,
+                    "station_name": info["name"],
+                    "state": info["state"],
+                    "region": info["region"],
+                    "lat": info["lat"],
+                    "lon": info["lon"],
+                    "decade": decade,
+                    "time_range": f"{min(years)}-{max(years)}",
+                    "avg_temp_c": round(avg, 1),
+                },
+            }
+        )
 
     return chunks
 

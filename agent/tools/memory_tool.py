@@ -1,10 +1,10 @@
 """Memory tool — AgentCore Memory integration for multi-session context."""
 
-import os
 import json
+import os
 
-from bedrock_agentcore.memory.session import MemorySessionManager
 from bedrock_agentcore.memory.constants import ConversationalMessage, MessageRole
+from bedrock_agentcore.memory.session import MemorySessionManager
 from strands import tool
 
 MEMORY_ID = os.environ.get("CLIMATE_RAG_MEMORY_ID", "")
@@ -29,9 +29,7 @@ def recall_research_context(actor_id: str, session_id: str, query: str) -> str:
         Relevant prior findings and preferences from long-term memory.
     """
     session = _get_session(actor_id, session_id)
-    records = session.search_long_term_memories(
-        query=query, namespace_prefix="/", top_k=5
-    )
+    records = session.search_long_term_memories(query=query, namespace_prefix="/", top_k=5)
     return json.dumps([str(r) for r in records], indent=2)
 
 

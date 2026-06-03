@@ -74,14 +74,16 @@ def search_climate_data(query: str, top_k: int = 5) -> str:
         if idx == -1:
             continue
         meta = _metadata[idx]
-        results.append({
-            "score": float(scores[0][i]),
-            "text": meta["text"],
-            "source": meta["metadata"].get("dataset", "unknown"),
-            "region": meta["metadata"].get("region", ""),
-            "decade": meta["metadata"].get("decade", ""),
-            "station_id": meta["metadata"].get("station_id", ""),
-            "time_range": meta["metadata"].get("time_range", ""),
-        })
+        results.append(
+            {
+                "score": float(scores[0][i]),
+                "text": meta["text"],
+                "source": meta["metadata"].get("dataset", "unknown"),
+                "region": meta["metadata"].get("region", ""),
+                "decade": meta["metadata"].get("decade", ""),
+                "station_id": meta["metadata"].get("station_id", ""),
+                "time_range": meta["metadata"].get("time_range", ""),
+            }
+        )
 
     return json.dumps(results, indent=2)

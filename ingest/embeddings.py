@@ -4,7 +4,6 @@ import json
 import os
 
 import boto3
-import numpy as np
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 MODEL_ID = "amazon.titan-embed-text-v2:0"

@@ -1,8 +1,8 @@
 """Chart tool — saves charts to disk for Streamlit to display."""
 
-import os
-import json
 import base64
+import json
+import os
 import uuid
 
 import boto3
@@ -47,9 +47,7 @@ def generate_chart(python_code: str, description: str) -> str:
         return json.dumps({"status": "error", "error": "Code Interpreter not configured"})
 
     client = boto3.client("bedrock-agentcore", region_name=REGION)
-    session = client.start_code_interpreter_session(
-        codeInterpreterIdentifier=CODE_INTERPRETER_ID
-    )
+    session = client.start_code_interpreter_session(codeInterpreterIdentifier=CODE_INTERPRETER_ID)
     sid = session["sessionId"]
 
     try:
@@ -68,7 +66,7 @@ def generate_chart(python_code: str, description: str) -> str:
         b64_image = ""
         for line in stdout.split("\n"):
             if line.startswith("CHART_BASE64:"):
-                b64_image = line[len("CHART_BASE64:"):]
+                b64_image = line[len("CHART_BASE64:") :]
                 break
 
         if b64_image:
@@ -76,19 +74,19 @@ def generate_chart(python_code: str, description: str) -> str:
             chart_path = os.path.join(CHART_DIR, f"chart_{chart_id}.png")
             with open(chart_path, "wb") as f:
                 f.write(base64.b64decode(b64_image))
-            return json.dumps({
-                "status": "success",
-                "chart_path": chart_path,
-                "description": description,
-            })
+            return json.dumps(
+                {
+                    "status": "success",
+                    "chart_path": chart_path,
+                    "description": description,
+                }
+            )
         else:
             return json.dumps({"status": "error", "error": f"No chart in output: {stdout[:300]}"})
     except Exception as e:
         return json.dumps({"status": "error", "error": str(e)})
     finally:
         try:
-            client.stop_code_interpreter_session(
-                codeInterpreterIdentifier=CODE_INTERPRETER_ID, sessionId=sid
-            )
+            client.stop_code_interpreter_session(codeInterpreterIdentifier=CODE_INTERPRETER_ID, sessionId=sid)
         except Exception:
             pass
