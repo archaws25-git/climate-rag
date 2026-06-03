@@ -1,0 +1,26 @@
+[project]
+name = "climate-rag"
+version = "1.0.0"
+description = "Production-grade RAG pipeline for historical climate trend analysis"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
+markers = [
+    "integration: marks tests that require AWS credentials (deselect with '-m \"not integration\"')",
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_configs = true
+
+[tool.coverage.run]
+source = ["agent", "ingest", "gateway", "cdk/custom_resources"]
+omit = ["tests/*", ".venv/*", "ingest/ingest_gistemp.py", "ingest/ingest_power.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80

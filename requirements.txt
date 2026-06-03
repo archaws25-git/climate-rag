@@ -1,22 +1,44 @@
-# Core
-bedrock-agentcore
-bedrock-agentcore-starter-toolkit
-strands-agents
-strands-agents-tools
+# ── Core Agent Framework ──────────────────────────────────────────
+bedrock-agentcore>=1.6.0
+bedrock-agentcore-starter-toolkit>=0.3.5
+strands-agents>=1.36.0
+strands-agents-tools>=0.5.0
 
-# AWS
-boto3
-aws-cdk-lib>=2.0.0
+# ── AWS SDK & CDK ────────────────────────────────────────────────
+boto3>=1.42.0
+aws-cdk-lib>=2.251.0
 constructs>=10.0.0,<11.0.0
-# Data processing
-pandas
-numpy
-faiss-cpu
-requests
 
-# Visualization (used by Code Interpreter and local testing)
-matplotlib
-plotly
+# ── Data Processing ──────────────────────────────────────────────
+pandas>=3.0.0
+numpy>=2.4.0
+faiss-cpu>=1.13.0
+requests>=2.33.0
 
-# UI
-streamlit
+# ── Visualization ────────────────────────────────────────────────
+matplotlib>=3.10.0
+plotly>=6.7.0
+
+# ── UI ───────────────────────────────────────────────────────────
+streamlit>=1.56.0
+
+# ── Observability (auto-installed with bedrock-agentcore) ────────
+opentelemetry-api>=1.41.0
+opentelemetry-sdk>=1.41.0
+opentelemetry-instrumentation>=0.62b0
+
+# ── Testing ──────────────────────────────────────────────────────
+pytest>=9.0.0
+pytest-cov>=7.1.0
+
+# ── Security Analysis ────────────────────────────────────────────
+bandit>=1.9.4
+
+# ── Code Quality ─────────────────────────────────────────────────
+autopep8>=2.3.0
+
+# ── Configuration & Utilities ────────────────────────────────────
+python-dotenv>=1.2.0
+pydantic>=2.13.0
+pydantic-settings>=2.14.0
+PyYAML>=6.0.0

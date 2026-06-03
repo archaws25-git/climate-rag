@@ -1,208 +1,286 @@
-import re
-import time
+"""
+AgentCore Custom Resource Handler — async polling pattern.
+
+The CDK Provider framework supports two Lambda entry points:
+  - onEvent  : called once by CFN to CREATE / UPDATE / DELETE the resource.
+               Must return quickly (< 60s). For Create, just calls the API
+               and returns the resource ID. Does NOT poll.
+  - isComplete: called repeatedly by the Provider framework (every
+               queryInterval seconds, up to totalTimeout) until it returns
+               {"IsComplete": True}. Polls the resource status once and
+               returns immediately either way.
+
+This split avoids the previous approach of blocking inside a single Lambda
+for up to 12 minutes, which was racing against the 14-min Lambda timeout
+and causing intermittent failures for Code Interpreter (slowest to activate).
+
+Provider framework timing (set in agentcore_stack.py):
+  queryInterval : 30 seconds between isComplete polls
+  totalTimeout  : 20 minutes overall budget (well above worst-case ~10 min)
+"""
+
 import logging
 import boto3
 from botocore.exceptions import ClientError
 
-# Configure logging to capture lifecycle events for debugging in CloudWatch
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# REGEX VALIDATION
-# This pattern matches the AWS requirement: [a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}
-# It prevents ValidationException during Delete/Update if a dummy physical ID exists.
-ID_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}$")
+# ── Boto3 client ─────────────────────────────────────────────────────
+# bedrock-agentcore-control is the control-plane endpoint.
+# bedrock-agentcore (no suffix) is the runtime invocation plane — wrong endpoint.
+def _client():
+    return boto3.client("bedrock-agentcore-control")
 
-def handler(event, context):
-    """
-    Main entry point for the CloudFormation Custom Resource.
-    Dispatches events based on ResourceType to ensure modular management 
-    of Memory, Code Interpreter, and Gateway resources.
-    """
-    resource_type = event.get("ResourceType")
-    request_type = event.get("RequestType")
-    physical_id = event.get("PhysicalResourceId")
-    props = event.get("ResourceProperties")
-    
-    # Standard Bedrock AgentCore client
-    client = boto3.client("bedrock-agentcore")
 
-    # Resource Dispatcher: Maps CFN ResourceTypes to their respective handler functions.
-    # This preserves the original functionality for all three resource types.
+# ════════════════════════════════════════════════════════════════════
+# ON-EVENT handler — called once per CFN Create / Update / Delete
+# Must return quickly. For Create: call the API, return the ID.
+# ════════════════════════════════════════════════════════════════════
+def on_event(event, context):
+    request_type = event["RequestType"]
+    props = event.get("ResourceProperties", {})
+    resource_type = props.get("ResourceType")
+    physical_id = event.get("PhysicalResourceId", "na")
+
+    logger.info("on_event: %s %s physical_id=%s", request_type, resource_type, physical_id)
+
     dispatch = {
-        "Custom::AgentCoreMemory": _handle_memory,
-        "Custom::AgentCoreCodeInterpreter": _handle_code_interpreter,
-        "Custom::AgentCoreGateway": _handle_gateway,
+        "Memory":          _on_event_memory,
+        "CodeInterpreter": _on_event_code_interpreter,
+        "Gateway":         _on_event_gateway,
     }
 
-    if resource_type in dispatch:
-        return dispatch[resource_type](client, request_type, physical_id, props)
-    
-    logger.error(f"Unknown ResourceType requested: {resource_type}")
-    return {"PhysicalResourceId": physical_id or "na"}
+    fn = dispatch.get(resource_type)
+    if fn is None:
+        logger.error("Unsupported ResourceType: %s", resource_type)
+        # Return success to avoid permanently blocking the stack.
+        return {"PhysicalResourceId": physical_id}
 
-def _wait_active(client, resource_id, resource_type):
-    """
-    Polls the resource status until it reaches the 'ACTIVE' state.
-    This is critical because AgentCore resources are provisioned asynchronously
-    and subsequent stack resources (like the Agent) depend on these being ready.
-    """
-    max_attempts = 20
-    delay = 15 # Total wait time approx 5 minutes
-    
-    for attempt in range(max_attempts):
+    return fn(_client(), request_type, physical_id, props)
+
+
+# ════════════════════════════════════════════════════════════════════
+# IS-COMPLETE handler — called repeatedly until IsComplete=True
+# Poll the resource status once and return immediately.
+# ════════════════════════════════════════════════════════════════════
+def is_complete(event, context):
+    request_type = event["RequestType"]
+    physical_id = event.get("PhysicalResourceId", "na")
+    props = event.get("ResourceProperties", {})
+    resource_type = props.get("ResourceType")
+
+    logger.info("is_complete: %s %s physical_id=%s", request_type, resource_type, physical_id)
+
+    # Delete and Update don't need ACTIVE polling — signal done immediately.
+    if request_type in ("Delete", "Update"):
+        return {"IsComplete": True}
+
+    dispatch = {
+        "Memory":          _is_complete_memory,
+        "CodeInterpreter": _is_complete_code_interpreter,
+        "Gateway":         _is_complete_gateway,
+    }
+
+    fn = dispatch.get(resource_type)
+    if fn is None:
+        logger.error("Unsupported ResourceType in is_complete: %s", resource_type)
+        return {"IsComplete": True}
+
+    return fn(_client(), physical_id)
+
+
+# ════════════════════════════════════════════════════════════════════
+# MEMORY
+# ════════════════════════════════════════════════════════════════════
+def _on_event_memory(client, request_type, physical_id, props):
+    if request_type == "Create":
+        logger.info("Creating AgentCore Memory: %s", props["Name"])
+        res = client.create_memory(
+            name=props["Name"],
+            # eventExpiryDuration is REQUIRED. CFN sends all props as strings
+            # so cast to int explicitly.
+            eventExpiryDuration=int(props["EventExpiryDays"]),
+        )
+        # CreateMemory response: {"memory": {"id": "...", "status": "CREATING", ...}}
+        # The ID field is "id", NOT "memoryId".
+        mid = res["memory"]["id"]
+        logger.info("Memory created (CREATING): %s", mid)
+        return {"PhysicalResourceId": mid, "Data": {"MemoryId": mid}}
+
+    if request_type == "Delete":
         try:
-            # Determine which 'get' operation to use based on resource category
-            if resource_type == "memory":
-                response = client.get_memory(memoryId=resource_id)
-            else:
-                response = client.get_code_interpreter(codeInterpreterId=resource_id)
-            
-            status = response.get("status")
-            logger.info(f"Polling {resource_type} {resource_id}: Current status is {status}")
-            
-            if status == "ACTIVE":
-                return True
-            if status in ["FAILED", "DELETING"]:
-                raise Exception(f"{resource_type} {resource_id} reached terminal state: {status}")
+            client.delete_memory(memoryId=physical_id)
+            logger.info("Memory delete requested: %s", physical_id)
         except ClientError as e:
-            logger.error(f"Error checking status for {resource_id}: {e}")
-            raise e
-        time.sleep(delay)
-    
-    raise Exception(f"Timeout: {resource_type} {resource_id} did not become ACTIVE within 5 minutes.")
+            if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                raise
+            logger.info("Memory already gone: %s", physical_id)
+        return {"PhysicalResourceId": physical_id, "Data": {"MemoryId": physical_id}}
 
-# ── MEMORY HANDLER ──────────────────────────────────────────────────
-def _handle_memory(client, request_type, physical_id, props):
-    """Handles the lifecycle of the AgentCore Memory resource."""
+    # Update — nothing to change for now
+    return {"PhysicalResourceId": physical_id, "Data": {"MemoryId": physical_id}}
+
+
+def _is_complete_memory(client, physical_id):
+    try:
+        res = client.get_memory(memoryId=physical_id)
+        # GetMemory response: {"memory": {"status": "ACTIVE"|"CREATING"|"FAILED", ...}}
+        status = res["memory"]["status"]
+        logger.info("Memory %s status: %s", physical_id, status)
+        if status == "ACTIVE":
+            return {"IsComplete": True, "Data": {"MemoryId": physical_id}}
+        if status == "FAILED":
+            raise RuntimeError("Memory %s entered FAILED state" % physical_id)
+        # Still CREATING — tell the framework to retry
+        return {"IsComplete": False}
+    except ClientError as e:
+        logger.error("Error polling memory %s: %s", physical_id, e)
+        raise
+
+
+# ════════════════════════════════════════════════════════════════════
+# CODE INTERPRETER
+# ════════════════════════════════════════════════════════════════════
+def _on_event_code_interpreter(client, request_type, physical_id, props):
     if request_type == "Create":
-        logger.info("Creating AgentCore Memory...")
-        res = client.create_memory(name=props["Name"])
-        memory_id = res["memoryId"]
-        
-        # VALIDATION: Ensure the ID from the API is used and verified before waiting
-        if not ID_PATTERN.match(memory_id):
-            raise ValueError(f"Service returned an invalid memoryId format: {memory_id}")
-            
-        _wait_active(client, memory_id, "memory")
-        return {"PhysicalResourceId": memory_id}
+        logger.info("Creating Code Interpreter: %s", props["Name"])
+        res = client.create_code_interpreter(
+            name=props["Name"],
+            # networkConfiguration.networkMode is REQUIRED by the API.
+            networkConfiguration={"networkMode": "PUBLIC"},
+        )
+        # CreateCodeInterpreter response: codeInterpreterId is at the TOP LEVEL,
+        # not nested under a "codeInterpreter" key.
+        cid = res["codeInterpreterId"]
+        logger.info("Code Interpreter created (CREATING): %s", cid)
+        return {"PhysicalResourceId": cid, "Data": {"CodeInterpreterId": cid}}
 
     if request_type == "Delete":
-        # SAFETY CHECK: Only attempt API call if the physical_id is a valid AWS ID.
-        # This prevents the 'pending' or dummy ID from causing a ValidationException.
-        if physical_id and ID_PATTERN.match(physical_id):
-            try:
-                logger.info(f"Deleting Memory: {physical_id}")
-                client.delete_memory(memoryId=physical_id)
-            except ClientError as e:
-                # Idempotency: If the resource is already gone, treat as success.
-                if e.response["Error"]["Code"] != "ResourceNotFoundException":
-                    raise
-        else:
-            logger.warning(f"Invalid PhysicalResourceId for deletion: {physical_id}. Skipping API call.")
-            
-        return {"PhysicalResourceId": physical_id}
-    
-    return {"PhysicalResourceId": physical_id}
+        try:
+            client.delete_code_interpreter(codeInterpreterId=physical_id)
+            logger.info("Code Interpreter delete requested: %s", physical_id)
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                raise
+            logger.info("Code Interpreter already gone: %s", physical_id)
+        return {"PhysicalResourceId": physical_id, "Data": {"CodeInterpreterId": physical_id}}
 
-# ── CODE INTERPRETER HANDLER ────────────────────────────────────────
-def _handle_code_interpreter(client, request_type, physical_id, props):
-    """Handles the lifecycle of the Code Interpreter resource."""
+    # Update — nothing to change for now
+    return {"PhysicalResourceId": physical_id, "Data": {"CodeInterpreterId": physical_id}}
+
+
+def _is_complete_code_interpreter(client, physical_id):
+    try:
+        res = client.get_code_interpreter(codeInterpreterId=physical_id)
+        # GetCodeInterpreter response: status is at the TOP LEVEL (not nested).
+        status = res["status"]
+        logger.info("Code Interpreter %s status: %s", physical_id, status)
+        if status == "ACTIVE":
+            return {"IsComplete": True, "Data": {"CodeInterpreterId": physical_id}}
+        if status == "FAILED":
+            raise RuntimeError("Code Interpreter %s entered FAILED state" % physical_id)
+        # Still CREATING — tell the framework to retry
+        return {"IsComplete": False}
+    except ClientError as e:
+        logger.error("Error polling code interpreter %s: %s", physical_id, e)
+        raise
+
+
+# ════════════════════════════════════════════════════════════════════
+# GATEWAY
+# ════════════════════════════════════════════════════════════════════
+def _on_event_gateway(client, request_type, physical_id, props):
     if request_type == "Create":
-        logger.info("Creating Code Interpreter...")
-        res = client.create_code_interpreter(name=props["Name"])
-        ci_id = res["codeInterpreterId"]
-        
-        # Ensure only a valid ID is passed back to CloudFormation
-        if not ID_PATTERN.match(ci_id):
-            raise ValueError(f"Invalid codeInterpreterId format: {ci_id}")
-            
-        _wait_active(client, ci_id, "code_interpreter")
-        return {"PhysicalResourceId": ci_id}
-
-    if request_type == "Delete":
-        if physical_id and ID_PATTERN.match(physical_id):
-            try:
-                client.delete_code_interpreter(codeInterpreterId=physical_id)
-            except ClientError as e:
-                if e.response["Error"]["Code"] != "ResourceNotFoundException":
-                    raise
-        return {"PhysicalResourceId": physical_id}
-    
-    return {"PhysicalResourceId": physical_id}
-
-# ── GATEWAY HANDLER ─────────────────────────────────────────────────
-def _handle_gateway(client, request_type, physical_id, props):
-    """
-    Handles the Gateway resource and its associated Targets.
-    Unlike Memory/CI, Gateways often require reconciliation during Updates.
-    """
-    if request_type == "Create":
-        logger.info("Creating Gateway...")
+        logger.info("Creating Gateway: %s", props["Name"])
         res = client.create_gateway(
             name=props["Name"],
-            roleArn=props["RoleArn"]
+            roleArn=props["RoleArn"],
+            # protocolType, authorizerType, authorizerConfiguration are all REQUIRED.
+            protocolType="MCP",
+            authorizerType="NONE",
+            authorizerConfiguration={},
+            protocolConfiguration={"mcp": {"searchType": "SEMANTIC"}},
+            exceptionLevel="DEBUG",
         )
-        gw_id = res["gatewayId"]
-        # Provision nested targets immediately after gateway creation
-        _create_gateway_targets(client, gw_id, props.get("Targets", []))
-        return {"PhysicalResourceId": gw_id}
+        # CreateGateway response: gatewayId is at the TOP LEVEL.
+        gwid = res["gatewayId"]
+        logger.info("Gateway created (pending ACTIVE): %s", gwid)
+        return {"PhysicalResourceId": gwid, "Data": {"GatewayId": gwid}}
 
     if request_type == "Update":
-        # RECONCILE: Existing functionality for updates ensures targets are refreshed.
-        logger.info(f"Updating targets for Gateway: {physical_id}")
         _delete_gateway_targets(client, physical_id)
         _create_gateway_targets(client, physical_id, props.get("Targets", []))
-        return {"PhysicalResourceId": physical_id}
+        return {"PhysicalResourceId": physical_id, "Data": {"GatewayId": physical_id}}
 
     if request_type == "Delete":
-        if physical_id and ID_PATTERN.match(physical_id):
-            try:
-                # Cleanup child targets before deleting parent Gateway
-                _delete_gateway_targets(client, physical_id)
-                client.delete_gateway(gatewayId=physical_id)
-            except ClientError as e:
-                if e.response["Error"]["Code"] != "ResourceNotFoundException":
-                    raise
-        return {"PhysicalResourceId": physical_id}
+        try:
+            _delete_gateway_targets(client, physical_id)
+            # DeleteGateway requires "gatewayIdentifier", not "gatewayId".
+            client.delete_gateway(gatewayIdentifier=physical_id)
+            logger.info("Gateway delete requested: %s", physical_id)
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                raise
+            logger.info("Gateway already gone: %s", physical_id)
+        return {"PhysicalResourceId": physical_id, "Data": {"GatewayId": physical_id}}
 
-    return {"PhysicalResourceId": physical_id}
+    return {"PhysicalResourceId": physical_id, "Data": {"GatewayId": physical_id}}
 
+
+def _is_complete_gateway(client, physical_id):
+    try:
+        res = client.get_gateway(gatewayIdentifier=physical_id)
+        # GetGateway response: status is at the TOP LEVEL.
+        status = res["status"]
+        logger.info("Gateway %s status: %s", physical_id, status)
+        if status == "ACTIVE":
+            # Gateway is ACTIVE — now create the targets
+            _create_gateway_targets(client, physical_id, [])
+            return {"IsComplete": True, "Data": {"GatewayId": physical_id}}
+        if status == "FAILED":
+            raise RuntimeError("Gateway %s entered FAILED state" % physical_id)
+        return {"IsComplete": False}
+    except ClientError as e:
+        logger.error("Error polling gateway %s: %s", physical_id, e)
+        raise
+
+
+# ════════════════════════════════════════════════════════════════════
+# GATEWAY TARGET HELPERS
+# ════════════════════════════════════════════════════════════════════
 def _create_gateway_targets(client, gw_id, targets):
-    """Iterates through target definitions and maps them as Lambda tools in the Gateway."""
     for t in targets:
-        logger.info(f"Adding target {t['name']} to Gateway {gw_id}")
         client.create_gateway_target(
             gatewayIdentifier=gw_id,
             name=t["name"],
-            targetType="LAMBDA",
-            targetResource={
-                "lambdaResource": {
-                    "lambda_arn": t["lambda_arn"],
-                    "toolSchema": {
-                        "inlinePayload": [{
-                            "name": t["tool_name"],
-                            "description": t["tool_description"],
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": t["properties"],
-                                "required": t["required"],
-                            },
-                        }]
+            targetConfiguration={"mcp": {"lambda": {
+                "lambdaArn": t["lambda_arn"],
+                "toolSchema": {"inlinePayload": [{
+                    "name": t["tool_name"],
+                    "description": t["tool_description"],
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": t["properties"],
+                        "required": t["required"],
                     },
-                }
-            },
+                }]},
+            }}},
             credentialProviderConfigurations=[
                 {"credentialProviderType": "GATEWAY_IAM_ROLE"}
             ],
         )
 
+
 def _delete_gateway_targets(client, gw_id):
-    """Identifies and removes all targets associated with a specific Gateway."""
     try:
-        targets = client.list_gateway_targets(gatewayIdentifier=gw_id).get("gatewayTargetSummaries", [])
+        targets = client.list_gateway_targets(
+            gatewayIdentifier=gw_id
+        ).get("gatewayTargetSummaries", [])
         for t in targets:
-            client.delete_gateway_target(gatewayIdentifier=gw_id, targetId=t["targetId"])
+            client.delete_gateway_target(
+                gatewayIdentifier=gw_id,
+                targetId=t["targetId"],
+            )
     except ClientError:
-        # Ignore errors if the gateway itself is already gone
         pass

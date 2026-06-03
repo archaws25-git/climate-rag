@@ -4,40 +4,42 @@ ClimateRAG — AgentCoreStack
 Provisions the three AgentCore resources that have no native CloudFormation
 or CDK support (as of CDK v2.170 / April 2026):
 
-  1. AgentCore Memory        — multi-session researcher context store
-  2. AgentCore Code Interpreter — sandboxed Python for chart generation
-  3. AgentCore Gateway       — MCP gateway exposing NASA/NOAA Lambdas as tools
+  1. AgentCore Memory            — multi-session researcher context store
+  2. AgentCore Code Interpreter  — sandboxed Python for chart generation
+  3. AgentCore Gateway           — MCP gateway exposing NASA/NOAA Lambdas as tools
 
-Each resource is backed by a Lambda-backed Custom Resource.  A single
-shared Lambda function (agentcore_handler/handler.py) handles all three
-resource types via a ResourceType discriminator in ResourceProperties.
+Async polling pattern (on_event + is_complete)
+───────────────────────────────────────────────
+The previous approach blocked inside a single Lambda for up to 12 minutes
+waiting for resources to reach ACTIVE, racing against the 14-min Lambda
+hard timeout. Code Interpreter consistently takes 10+ minutes, causing
+intermittent failures.
 
-Why Lambda-backed Custom Resource over AwsCustomResource
-─────────────────────────────────────────────────────────
-AwsCustomResource fires an SDK call once and returns immediately.
-AgentCore Memory and Code Interpreter both require a polling loop
-(~3 min to reach ACTIVE status).  The Lambda-backed pattern allows
-_wait_active() to run inside the Lambda timeout (15 min max), which is
-the only correct way to handle this without a separate Step Function.
+The CDK Provider framework natively supports async polling via two handlers:
+  - on_event_handler  : called once to CREATE/DELETE the resource. Returns
+                        immediately after the API call — does NOT poll.
+  - is_complete_handler: called every queryInterval until it returns
+                        {"IsComplete": True}. Each invocation polls once
+                        and returns in < 1 second.
 
-Custom Resource timeout budget
-────────────────────────────────
-  Memory            : up to  5 min to ACTIVE
-  Code Interpreter  : up to  5 min to ACTIVE
-  Gateway           : up to  2 min to ACTIVE  (+ IAM retry ~30s)
-  Total (sequential): ~12 min worst case
-  Lambda timeout set: 14 min (leaves 1 min buffer before CFN timeout at 60 min)
+This means the Lambda timeout only needs to cover a single API call (~5s),
+not the full activation wait. The Provider framework manages the retry loop
+externally using a Step Functions state machine under the hood.
+
+Timing budget:
+  queryInterval : 30 s   — how often is_complete is invoked
+  totalTimeout  : 25 min — overall budget before CFN marks the resource FAILED
+  Code Interpreter typically reaches ACTIVE in 8-12 min in practice.
 
 Resources provisioned:
-  - aws_iam.Role                  (AgentCore custom resource Lambda role)
-  - aws_lambda.Function           (shared AgentCore provisioner)
-  - custom_resources.Provider     (wraps Lambda as a CFN CR provider)
-  - cdk.CustomResource × 3        (Memory / CodeInterpreter / Gateway)
+  - aws_iam.Role          (AgentCore custom resource Lambda role)
+  - aws_lambda.Function   (on_event handler)
+  - aws_lambda.Function   (is_complete handler — same code, different entry point)
+  - custom_resources.Provider
+  - cdk.CustomResource × 3  (Memory / CodeInterpreter / Gateway)
 
 Outputs:
-  - MemoryId, CodeInterpreterId, GatewayId   (SSM Parameters + CfnOutputs)
-    Written to SSM so the agent can read its own config at runtime without
-    hardcoding IDs in .env files.
+  - MemoryId, CodeInterpreterId, GatewayId  (SSM Parameters + CfnOutputs)
 """
 
 import os
@@ -53,17 +55,16 @@ from aws_cdk import (
     aws_ssm as ssm,
 )
 from constructs import Construct
-import logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-_HANDLER_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "custom_resources", "agentcore_handler"
+
+# Path to the handler directory (contains handler.py with on_event + is_complete)
+_HANDLER_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "custom_resources", "agentcore_handler")
 )
 
 
 class AgentCoreStack(Stack):
-    
-   def __init__(
+
+    def __init__(
         self,
         scope: Construct,
         construct_id: str,
@@ -75,9 +76,8 @@ class AgentCoreStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # ── IAM: Custom Resource Lambda execution role ────────────
-        # Needs permission to call the AgentCore control-plane APIs for
-        # create / describe / list / delete on all three resource types,
-        # plus basic Lambda execution (CloudWatch Logs).
+        # Shared by both on_event and is_complete Lambdas.
+        # Needs AgentCore control-plane create/get/list/delete + CloudWatch Logs.
         cr_lambda_role = iam.Role(
             self,
             "AgentCoreCRLambdaRole",
@@ -91,10 +91,6 @@ class AgentCoreStack(Stack):
         )
         cr_lambda_role.apply_removal_policy(RemovalPolicy.DESTROY)
 
-
-        # Least-privilege AgentCore control-plane permissions.
-        # bedrock-agentcore is the service prefix for the
-        # AgentCore management API (create/get/list/delete).
         cr_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -107,34 +103,56 @@ class AgentCoreStack(Stack):
             )
         )
 
-        # ── Shared Custom Resource Lambda ─────────────────────────
-        # One function handles Memory, CodeInterpreter, and Gateway.
-        # Timeout is 14 min to accommodate the ~5 min ACTIVE wait for
-        # Memory and Code Interpreter (CFN waits up to 60 min by default).
-        cr_lambda = lambda_.Function(
+        # ── on_event Lambda ───────────────────────────────────────
+        # Called once per CFN Create/Update/Delete.
+        # Only makes the API call and returns the resource ID immediately.
+        # Short timeout is fine — no polling happens here.
+        on_event_lambda = lambda_.Function(
             self,
-            "AgentCoreCRLambda",
+            "AgentCoreCROnEvent",
             runtime=lambda_.Runtime.PYTHON_3_12,
-            handler="handler.handler",
-            code=lambda_.Code.from_asset(os.path.abspath(_HANDLER_DIR)),
+            # handler.on_event — the create/delete entry point
+            handler="handler.on_event",
+            code=lambda_.Code.from_asset(_HANDLER_DIR),
             role=cr_lambda_role,
-            timeout=Duration.minutes(14),
+            timeout=Duration.seconds(60),
             memory_size=256,
-            description=(
-                "ClimateRAG — AgentCore custom resource provisioner "
-                "(Memory / CodeInterpreter / Gateway)"
-            ),
+            description="ClimateRAG — AgentCore CR on_event (create/delete API calls)",
         )
-        cr_lambda.apply_removal_policy(RemovalPolicy.DESTROY)
+        on_event_lambda.apply_removal_policy(RemovalPolicy.DESTROY)
 
+        # ── is_complete Lambda ────────────────────────────────────
+        # Called every queryInterval by the Provider framework.
+        # Polls the resource status once and returns IsComplete True/False.
+        # Short timeout — each poll is a single API call.
+        is_complete_lambda = lambda_.Function(
+            self,
+            "AgentCoreCRIsComplete",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            # handler.is_complete — the polling entry point
+            handler="handler.is_complete",
+            code=lambda_.Code.from_asset(_HANDLER_DIR),
+            role=cr_lambda_role,
+            timeout=Duration.seconds(30),
+            memory_size=256,
+            description="ClimateRAG — AgentCore CR is_complete (status polling)",
+        )
+        is_complete_lambda.apply_removal_policy(RemovalPolicy.DESTROY)
 
-        # ── CDK Custom Resource Provider ─────────────────────────
-        # Provider wraps the Lambda as a CFN custom resource service token.
-        # Completion is handled inside the Lambda itself via _wait_active().
+        # ── CDK Custom Resource Provider ──────────────────────────
+        # The Provider framework manages the polling loop externally
+        # (Step Functions state machine) — no blocking inside Lambda.
+        #
+        # queryInterval : how often is_complete is called (30 s)
+        # totalTimeout  : overall budget before CFN marks FAILED (25 min)
+        #   Code Interpreter takes 8-12 min in practice; 25 min gives headroom.
         provider = custom_resources.Provider(
             self,
             "AgentCoreCRProvider",
-            on_event_handler=cr_lambda,
+            on_event_handler=on_event_lambda,
+            is_complete_handler=is_complete_lambda,
+            query_interval=Duration.seconds(30),
+            total_timeout=Duration.minutes(25),
         )
 
         # ── Custom Resource 1: Memory ─────────────────────────────
@@ -146,10 +164,11 @@ class AgentCoreStack(Stack):
                 "ResourceType":    "Memory",
                 "Name":            "ClimateRAGMemory",
                 "Description":     "Climate research memory — researcher context and findings",
+                # eventExpiryDuration is REQUIRED by the API (integer days).
+                # CFN passes all properties as strings; handler casts to int.
                 "EventExpiryDays": "30",
             },
         )
-        logger.info("*******************************\nCreated Memory Custom Resource, waiting for ID:%s", memory_resource)
         memory_id = memory_resource.get_att_string("MemoryId")
 
         # ── Custom Resource 2: Code Interpreter ───────────────────
@@ -163,13 +182,11 @@ class AgentCoreStack(Stack):
                 "Description":  "Sandboxed Python for climate data chart generation",
             },
         )
-
         code_interpreter_id = code_interpreter_resource.get_att_string("CodeInterpreterId")
 
         # ── Custom Resource 3: Gateway ────────────────────────────
-        # Depends on Memory and CodeInterpreter being ACTIVE first
-        # (belt-and-suspenders — CFN serialises these already since they
-        # share the same Provider).
+        # Explicit dependency ensures Memory and CodeInterpreter are ACTIVE
+        # before the Gateway is created (Gateway targets reference their IDs).
         gateway_resource = CustomResource(
             self,
             "AgentCoreGateway",
@@ -184,13 +201,11 @@ class AgentCoreStack(Stack):
         )
         gateway_resource.node.add_dependency(memory_resource)
         gateway_resource.node.add_dependency(code_interpreter_resource)
-
         gateway_id = gateway_resource.get_att_string("GatewayId")
 
         # ── SSM Parameters ────────────────────────────────────────
         # Store IDs in SSM so the agent reads its own config at runtime
-        # via boto3 SSM rather than hardcoded .env values.  This removes
-        # the need for the setup_all.py .env file generation step.
+        # without hardcoded .env values.
         ssm.StringParameter(
             self,
             "MemoryIdParam",
