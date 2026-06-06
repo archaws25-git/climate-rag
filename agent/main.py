@@ -21,7 +21,7 @@ except ImportError:
     pass
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
-MODEL_ID = os.environ.get("CLIMATE_RAG_MODEL", "us.anthropic.claude-sonnet-4-5-20250929-v1:0")
+MODEL_ID = os.environ.get("CLIMATE_RAG_MODEL", "us.anthropic.claude-sonnet-4-6")
 
 SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "system_prompt.txt").read_text()
 
@@ -48,12 +48,27 @@ def handle_request(prompt: str, session_id: str = None, actor_id: str = "default
         save_turn(actor_id, session_id, "user", prompt)
 
     # Snapshot charts before call
-    chart_dir = os.environ.get("CLIMATE_RAG_CHART_DIR", "/tmp/climate-rag-charts")
+    chart_dir = os.environ.get(
+        "CLIMATE_RAG_CHART_DIR",
+        os.path.join(os.environ.get("TEMP", "/tmp"), "climate-rag-charts"),  # nosec B108
+    )
     os.makedirs(chart_dir, exist_ok=True)
     before = set(_glob.glob(os.path.join(chart_dir, "*.png")))
 
     response = agent(prompt)
     result = str(response)
+
+    # Extract tool names that were called during this invocation.
+    # Strands stores tool_use blocks in the agent's conversation messages.
+    tools_called = []
+    try:
+        for msg in agent.messages:
+            if msg.get("role") == "assistant":
+                for block in msg.get("content", []):
+                    if isinstance(block, dict) and "toolUse" in block:
+                        tools_called.append(block["toolUse"].get("name", ""))
+    except Exception:
+        pass
 
     # Detect new charts
     after = set(_glob.glob(os.path.join(chart_dir, "*.png")))
@@ -62,7 +77,12 @@ def handle_request(prompt: str, session_id: str = None, actor_id: str = "default
     if _memory_available and os.environ.get("CLIMATE_RAG_MEMORY_ID"):
         save_turn(actor_id, session_id, "assistant", result)
 
-    return {"response": result, "session_id": session_id, "charts": new_charts}
+    return {
+        "response": result,
+        "session_id": session_id,
+        "charts": new_charts,
+        "tools_called": tools_called,
+    }
 
 
 # AgentCore Runtime entry point

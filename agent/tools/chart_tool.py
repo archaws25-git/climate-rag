@@ -10,7 +10,10 @@ from strands import tool
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 CODE_INTERPRETER_ID = os.environ.get("CLIMATE_RAG_CODE_INTERPRETER_ID", "")
-CHART_DIR = os.environ.get("CLIMATE_RAG_CHART_DIR", "/tmp/climate-rag-charts")
+CHART_DIR = os.environ.get(
+    "CLIMATE_RAG_CHART_DIR",
+    os.path.join(os.environ.get("TEMP", "/tmp"), "climate-rag-charts"),  # nosec B108
+)
 
 os.makedirs(CHART_DIR, exist_ok=True)
 
@@ -81,8 +84,7 @@ def generate_chart(python_code: str, description: str) -> str:
                     "description": description,
                 }
             )
-        else:
-            return json.dumps({"status": "error", "error": f"No chart in output: {stdout[:300]}"})
+        return json.dumps({"status": "error", "error": f"No chart in output: {stdout[:300]}"})
     except Exception as e:
         return json.dumps({"status": "error", "error": str(e)})
     finally:

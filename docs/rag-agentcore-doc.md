@@ -220,7 +220,7 @@ For 93 vectors, FAISS loads into memory in under a second. There's no running in
 4. `handle_request()` snapshots the chart directory before calling the agent, then detects any new chart files after — this is how chart outputs are captured.
 5. Optionally saves conversation turns to AgentCore Memory
 
-**Bug(s) fixed**: Claude Sonnet 4 requires an inference profile ID (`us.anthropic.claude-sonnet-4-20250514-v1:0`), not the raw model ID. The raw ID throws `ValidationException: Invocation of model ID with on-demand throughput isn't supported`. This is a Bedrock requirement for newer models.
+**Bug(s) fixed**: Claude Sonnet 4 requires an inference profile ID (`us.anthropic.claude-sonnet-4-6`), not the raw model ID. The raw ID throws `ValidationException: Invocation of model ID with on-demand throughput isn't supported`. This is a Bedrock requirement for newer models.
 
 **Design decision — Strands Agents over LangGraph/LlamaIndex**:
 - **AWS Strands**: First-class AgentCore starter toolkit support, `agentcore create/dev/deploy` workflow, built-in OTEL instrumentation, simplest deployment path

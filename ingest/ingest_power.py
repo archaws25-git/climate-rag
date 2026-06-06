@@ -2,11 +2,12 @@
 
 import json
 import os
+import tempfile
 import time
 import urllib.parse
 import urllib.request
 
-OUTPUT_DIR = os.environ.get("CHUNK_OUTPUT_DIR", "/tmp/climate-rag-chunks")
+OUTPUT_DIR = os.environ.get("CHUNK_OUTPUT_DIR", os.path.join(tempfile.gettempdir(), "climate-rag-chunks"))
 
 BASE_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point"
 PARAMETERS = "T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,ALLSKY_SFC_SW_DWN"
@@ -36,7 +37,7 @@ def query_power_api(lat, lon, start_year, end_year):
     req = urllib.request.Request(url)
 
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310 — hardcoded HTTPS URL
             return json.loads(resp.read().decode())
     except Exception as e:
         print(f"  Warning: API call failed ({e})")
@@ -115,8 +116,7 @@ def main():
 
     output_path = os.path.join(OUTPUT_DIR, "power_chunks.jsonl")
     with open(output_path, "w") as f:
-        for chunk in all_chunks:
-            f.write(json.dumps(chunk) + "\n")
+        f.writelines(json.dumps(chunk) + "\n" for chunk in all_chunks)
 
     print(f"Created {len(all_chunks)} NASA POWER chunks → {output_path}")
 

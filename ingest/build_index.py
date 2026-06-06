@@ -2,13 +2,14 @@
 
 import json
 import os
+import tempfile
 
 import boto3
 import faiss
 import numpy as np
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
-CHUNK_DIR = os.environ.get("CHUNK_OUTPUT_DIR", "/tmp/climate-rag-chunks")
+CHUNK_DIR = os.environ.get("CHUNK_OUTPUT_DIR", os.path.join(tempfile.gettempdir(), "climate-rag-chunks"))
 S3_BUCKET = os.environ.get("CLIMATE_RAG_BUCKET", "climate-rag-index")
 INDEX_PREFIX = "index/"
 
@@ -60,7 +61,9 @@ def save_and_upload(index, chunks):
             f.write(json.dumps(record) + "\n")
 
     # Upload to S3
-    s3 = boto3.client("s3", region_name=REGION)
+    profile = os.environ.get("AWS_PROFILE")
+    session = boto3.Session(profile_name=profile, region_name=REGION)
+    s3 = session.client("s3")
 
     for filename in ["faiss.index", "metadata.jsonl"]:
         local_path = os.path.join(local_dir, filename)

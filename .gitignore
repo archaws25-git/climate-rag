@@ -62,5 +62,8 @@ Desktop.ini
 # ── Logs ─────────────────────────────────────────────────────────
 *.log
 
+# ── Eval Results ─────────────────────────────────────────────────
+eval/results/
+
 # ── Jupyter Notebooks (checkpoints) ─────────────────────────────
 .ipynb_checkpoints/

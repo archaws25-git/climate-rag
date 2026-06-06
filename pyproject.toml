@@ -10,6 +10,7 @@ pythonpath = ["."]
 addopts = "-v --tb=short"
 markers = [
     "integration: marks tests that require AWS credentials (deselect with '-m \"not integration\"')",
+    "load: marks load/stress tests that require deployed infrastructure (deselect with '-m \"not load\"')",
 ]
 
 [tool.mypy]

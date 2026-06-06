@@ -371,7 +371,7 @@ agentcore invoke '{"prompt": "ping"}'
 | `No index found` on first agent query | Ingestion not run yet | Complete Phase 2 |
 | Agent returns `Code Interpreter not configured` | `CLIMATE_RAG_CODE_INTERPRETER_ID` env var missing | Read from SSM (see Phase 2 step 4.1) |
 | Gateway tool calls fail | Lambda not deployed or ARN changed | Re-run `cdk deploy ClimateRagComputeStack` then `ClimateRagAgentCoreStack` |
-| `ValidationException: Invocation of model ID` | Wrong Bedrock model ID format | Claude Sonnet 4 requires inference profile ID: `us.anthropic.claude-sonnet-4-20250514-v1:0` |
+| `ValidationException: Invocation of model ID` | Wrong Bedrock model ID format | Claude Sonnet 4 requires inference profile ID: `us.anthropic.claude-sonnet-4-6` |
 | Streamlit chart not rendering | Code Interpreter session expired | Restart Streamlit; Code Interpreter sessions are ephemeral |
 
 ---

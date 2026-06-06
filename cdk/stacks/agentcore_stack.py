@@ -63,6 +63,7 @@ _HANDLER_DIR = os.path.abspath(
 
 
 class AgentCoreStack(Stack):
+    """CDK stack provisioning AgentCore Memory, Code Interpreter, and Gateway."""
 
     def __init__(
         self,
@@ -144,15 +145,16 @@ class AgentCoreStack(Stack):
         # (Step Functions state machine) — no blocking inside Lambda.
         #
         # queryInterval : how often is_complete is called (30 s)
-        # totalTimeout  : overall budget before CFN marks FAILED (25 min)
-        #   Code Interpreter takes 8-12 min in practice; 25 min gives headroom.
+        # totalTimeout  : overall budget before CFN marks FAILED (40 min)
+        #   Code Interpreter can take 15-25 min in some accounts.
+        #   40 min gives ample headroom while staying under CFN's 60-min limit.
         provider = custom_resources.Provider(
             self,
             "AgentCoreCRProvider",
             on_event_handler=on_event_lambda,
             is_complete_handler=is_complete_lambda,
             query_interval=Duration.seconds(30),
-            total_timeout=Duration.minutes(25),
+            total_timeout=Duration.minutes(40),
         )
 
         # ── Custom Resource 1: Memory ─────────────────────────────

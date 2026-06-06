@@ -2,12 +2,19 @@
 
 import json
 import os
+import tempfile
 
 import boto3
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 MODEL_ID = "amazon.titan-embed-text-v2:0"
-CHUNK_DIR = os.environ.get("CHUNK_OUTPUT_DIR", "/tmp/climate-rag-chunks")
+CHUNK_DIR = os.environ.get("CHUNK_OUTPUT_DIR", os.path.join(tempfile.gettempdir(), "climate-rag-chunks"))
+
+
+def _get_session():
+    """Create a boto3 session using the configured AWS_PROFILE."""
+    profile = os.environ.get("AWS_PROFILE")
+    return boto3.Session(profile_name=profile, region_name=REGION)
 
 
 def get_embedding(client, text: str) -> list[float]:
@@ -21,7 +28,7 @@ def get_embedding(client, text: str) -> list[float]:
 
 def embed_chunks(input_path: str, output_path: str):
     """Read chunks from JSONL, generate embeddings, write to output JSONL."""
-    client = boto3.client("bedrock-runtime", region_name=REGION)
+    client = _get_session().client("bedrock-runtime")
 
     chunks = []
     with open(input_path) as f:

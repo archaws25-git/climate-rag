@@ -30,6 +30,7 @@ opentelemetry-instrumentation>=0.62b0
 # ── Testing ──────────────────────────────────────────────────────
 pytest>=9.0.0
 pytest-cov>=7.1.0
+pytest-timeout>=2.4.0
 
 # ── Security Analysis ────────────────────────────────────────────
 bandit>=1.9.4

@@ -38,7 +38,7 @@ def handler(event, context):
         if CDO_TOKEN:
             req.add_header("token", CDO_TOKEN)
 
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 — URL built from hardcoded HTTPS base
             data = json.loads(resp.read().decode())
 
         # Limit response size

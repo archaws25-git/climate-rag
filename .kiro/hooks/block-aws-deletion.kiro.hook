@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Block AWS Deletion",
+  "description": "Prevents execution of any shell command that deletes AWS resources (cdk destroy, aws delete-*, aws remove-*). Requires explicit user approval before proceeding.",
+  "version": "1",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": [
+      "shell"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "You MUST CHECK: Does this shell command delete or destroy AWS resources (cdk destroy, aws delete, aws remove, rm on S3, cloudformation delete-stack)? If YES: Do NOT execute. Instead, tell the user what would be deleted, whether it's reversible, and ask for explicit approval. If NO: Proceed normally."
+  }
+}

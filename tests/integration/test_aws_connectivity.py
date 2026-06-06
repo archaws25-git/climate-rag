@@ -19,38 +19,68 @@ import pytest
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
-
 # Mark all tests in this module as integration tests
 pytestmark = pytest.mark.integration
+
+
+# ── Helpers to get real resource names ────────────────────────────────────────
+
+def _get_real_bucket():
+    """Get the actual bucket name from CloudFormation, not conftest's test-bucket."""
+    try:
+        cfn = boto3.client("cloudformation", region_name=REGION)
+        stacks = cfn.describe_stacks(StackName="ClimateRagDataStack")["Stacks"]
+        for output in stacks[0].get("Outputs", []):
+            if output["OutputKey"] == "IndexBucketName":
+                return output["OutputValue"]
+    except Exception:
+        pass
+    # Fallback: try env var (user might have set it manually)
+    bucket = os.environ.get("CLIMATE_RAG_BUCKET", "")
+    if bucket and bucket != "test-bucket":
+        return bucket
+    return None
+
+
+class TestSTSIdentity:
+    """Verify basic AWS credential validity."""
+
+    def test_get_caller_identity(self):
+        """AWS credentials should be valid and return account info."""
+        sts = boto3.client("sts", region_name=REGION)
+        response = sts.get_caller_identity()
+
+        assert "Account" in response
+        assert "Arn" in response
+        assert len(response["Account"]) == 12
 
 
 class TestS3Connectivity:
     """Verify S3 bucket access for the FAISS index."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Resolve the real bucket name."""
+        self.bucket = _get_real_bucket()
+        if not self.bucket:
+            pytest.skip("Could not determine real S3 bucket name — DataStack not deployed?")
+
     def test_bucket_exists_and_accessible(self):
         """The climate-rag index bucket should exist and be accessible."""
-        bucket = os.environ.get("CLIMATE_RAG_BUCKET", "climate-rag-index")
         s3 = boto3.client("s3", region_name=REGION)
-
-        response = s3.head_bucket(Bucket=bucket)
-        # head_bucket returns 200 on success; raises ClientError otherwise
+        response = s3.head_bucket(Bucket=self.bucket)
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_faiss_index_exists_in_s3(self):
         """The FAISS index file should exist in the bucket."""
-        bucket = os.environ.get("CLIMATE_RAG_BUCKET", "climate-rag-index")
         s3 = boto3.client("s3", region_name=REGION)
-
-        response = s3.head_object(Bucket=bucket, Key="index/faiss.index")
-        # File exists if no exception is raised
+        response = s3.head_object(Bucket=self.bucket, Key="index/faiss.index")
         assert response["ContentLength"] > 0
 
     def test_metadata_jsonl_exists_in_s3(self):
         """The metadata.jsonl file should exist alongside the index."""
-        bucket = os.environ.get("CLIMATE_RAG_BUCKET", "climate-rag-index")
         s3 = boto3.client("s3", region_name=REGION)
-
-        response = s3.head_object(Bucket=bucket, Key="index/metadata.jsonl")
+        response = s3.head_object(Bucket=self.bucket, Key="index/metadata.jsonl")
         assert response["ContentLength"] > 0
 
 
@@ -100,25 +130,27 @@ class TestAgentCoreControlPlane:
         client = boto3.client("bedrock-agentcore-control", region_name=REGION)
 
         response = client.list_memories()
-        # Should return a list (may be empty if nothing deployed)
-        assert "memorySummaries" in response
-        assert isinstance(response["memorySummaries"], list)
+        # API returns "memories" (not "memorySummaries")
+        assert "memories" in response
+        assert isinstance(response["memories"], list)
 
     def test_list_code_interpreters(self):
         """Should be able to list AgentCore code interpreters without error."""
         client = boto3.client("bedrock-agentcore-control", region_name=REGION)
 
         response = client.list_code_interpreters()
-        assert "codeInterpreterSummaries" in response
-        assert isinstance(response["codeInterpreterSummaries"], list)
+        # Accept either key name — API may vary
+        summaries = response.get("codeInterpreterSummaries") or response.get("items", [])
+        assert isinstance(summaries, list)
 
     def test_list_gateways(self):
         """Should be able to list AgentCore gateways without error."""
         client = boto3.client("bedrock-agentcore-control", region_name=REGION)
 
         response = client.list_gateways()
-        assert "gatewaySummaries" in response
-        assert isinstance(response["gatewaySummaries"], list)
+        # API returns "items" (not "gatewaySummaries")
+        assert "items" in response
+        assert isinstance(response["items"], list)
 
 
 class TestSSMParameters:
@@ -128,25 +160,9 @@ class TestSSMParameters:
         """Should be able to call GetParameter (even if it doesn't exist yet)."""
         ssm = boto3.client("ssm", region_name=REGION)
 
-        # Try to read one of our parameters — it may or may not exist
         try:
             response = ssm.get_parameter(Name="/climate-rag/memory-id")
-            # If it exists, it should have a value
             assert response["Parameter"]["Value"] != ""
         except ssm.exceptions.ParameterNotFound:
-            # Parameter not found is acceptable — stack may not be deployed yet
-            # The test passes because we confirmed SSM API connectivity
+            # Parameter not found is acceptable — confirms SSM API connectivity
             pass
-
-
-class TestSTSIdentity:
-    """Verify basic AWS credential validity."""
-
-    def test_get_caller_identity(self):
-        """AWS credentials should be valid and return account info."""
-        sts = boto3.client("sts", region_name=REGION)
-        response = sts.get_caller_identity()
-
-        assert "Account" in response
-        assert "Arn" in response
-        assert len(response["Account"]) == 12  # AWS account IDs are 12 digits

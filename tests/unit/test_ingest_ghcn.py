@@ -118,10 +118,10 @@ class TestGenerateSampleData:
         assert len(lines) > 1
 
     def test_all_stations_present(self):
-        """Generated data should include all configured stations."""
+        """Generated data should include all 37 configured stations."""
         data = generate_sample_data()
         for station_id in STATIONS:
-            assert station_id in data
+            assert station_id in data, f"Station {station_id} missing from sample data"
 
     def test_parseable_by_chunker(self):
         """Generated sample data should be parseable by parse_and_chunk."""
@@ -134,4 +134,33 @@ class TestGenerateSampleData:
         data = generate_sample_data()
         chunks = parse_and_chunk(data)
         decades = set(c["metadata"]["decade"] for c in chunks)
-        assert len(decades) >= 5, f"Expected 5+ decades, got {decades}"
+        assert len(decades) >= 7, f"Expected 7+ decades, got {decades}"
+
+    def test_station_count_is_37(self):
+        """STATIONS dict should have exactly 37 entries."""
+        assert len(STATIONS) == 37
+
+    def test_all_regions_covered(self):
+        """Should cover all 7 US climate regions."""
+        regions = set(info["region"] for info in STATIONS.values())
+        expected = {"Southeast", "Northeast", "Midwest", "West", "South Central", "Alaska", "Hawaii"}
+        assert regions == expected
+
+    def test_generates_approximately_correct_chunk_count(self):
+        """Should produce ~296 chunks (37 stations × 8 decades)."""
+        data = generate_sample_data()
+        chunks = parse_and_chunk(data)
+        # 37 stations × 8 decades = 296, but edge decades may vary
+        assert 250 <= len(chunks) <= 310, f"Got {len(chunks)} chunks"
+
+    def test_realistic_warming_rate(self):
+        """Temperature difference between 1950s and 2020s should be ~0.5°C."""
+        data = generate_sample_data()
+        chunks = parse_and_chunk(data)
+        # Find Atlanta 1950s and 2020s chunks
+        atlanta_chunks = [c for c in chunks if c["metadata"]["station_id"] == "USW00013874"]
+        decades_map = {c["metadata"]["decade"]: c["metadata"]["avg_temp_c"] for c in atlanta_chunks}
+        if "1950s" in decades_map and "2020s" in decades_map:
+            diff = decades_map["2020s"] - decades_map["1950s"]
+            # Should be roughly 0.5°C (±0.5 due to noise)
+            assert -0.5 <= diff <= 1.5, f"Warming {diff:.2f}°C seems unrealistic"

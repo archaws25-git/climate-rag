@@ -146,7 +146,8 @@ class TestOnEventGateway:
         call_kwargs = mock_client.create_gateway.call_args[1]
         assert call_kwargs["protocolType"] == "MCP"
         assert call_kwargs["authorizerType"] == "NONE"
-        assert call_kwargs["authorizerConfiguration"] == {}
+        # authorizerConfiguration is intentionally omitted — not required when NONE
+        assert "authorizerConfiguration" not in call_kwargs
 
     @patch("custom_resources.agentcore_handler.handler._client")
     def test_delete_gateway(self, mock_client_fn):
