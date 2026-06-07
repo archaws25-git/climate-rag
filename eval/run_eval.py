@@ -43,7 +43,17 @@ import boto3
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agent"))
 
 from eval_config import BENCHMARK_QUERIES
+
+# Disable memory during eval — the memory SDK doesn't use AWS_PROFILE
+# and will fail with ExpiredTokenException. Eval doesn't need memory.
+os.environ["CLIMATE_RAG_MEMORY_ID"] = ""
+os.environ.pop("CLIMATE_RAG_MEMORY_ID", None)
+
 from main import handle_request
+
+# Also force-disable memory at the module level in case it was already loaded
+import main as main_module
+main_module._memory_available = False
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 REGION = os.environ.get("AWS_REGION", "us-east-1")

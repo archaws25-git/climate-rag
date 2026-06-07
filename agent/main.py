@@ -45,7 +45,10 @@ def handle_request(prompt: str, session_id: str = None, actor_id: str = "default
     session_id = session_id or str(uuid.uuid4())
 
     if _memory_available and os.environ.get("CLIMATE_RAG_MEMORY_ID"):
-        save_turn(actor_id, session_id, "user", prompt)
+        try:
+            save_turn(actor_id, session_id, "user", prompt)
+        except Exception as _mem_err:
+            print(f"  Warning: Error storing turn: {_mem_err}")
 
     # Snapshot charts before call
     chart_dir = os.environ.get(
@@ -75,7 +78,10 @@ def handle_request(prompt: str, session_id: str = None, actor_id: str = "default
     new_charts = sorted(after - before)
 
     if _memory_available and os.environ.get("CLIMATE_RAG_MEMORY_ID"):
-        save_turn(actor_id, session_id, "assistant", result)
+        try:
+            save_turn(actor_id, session_id, "assistant", result)
+        except Exception as _mem_err:
+            print(f"  Warning: Error storing turn: {_mem_err}")
 
     return {
         "response": result,
