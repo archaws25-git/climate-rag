@@ -9,6 +9,10 @@ import os
 import sys
 import uuid
 
+# Load centralized config (.env + SSM + profile detection)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import config  # noqa: E402, F401
+
 import boto3
 import streamlit as st
 
@@ -24,7 +28,7 @@ SSM_PARAMS = {
 }
 
 
-@st.cache_resource
+@st.cache_resource(ttl=300)  # Refresh SSM values every 5 minutes
 def load_config_from_ssm():
     """Load AgentCore resource IDs from SSM Parameter Store.
 
@@ -81,8 +85,8 @@ with st.sidebar:
     st.divider()
     st.header("💡 Try asking")
     st.markdown(
-        "- *How has temperature changed in the Southeast?*\n"
-        "- *Compare New York and LA trends since 1950*\n"
+        "- *How has temperature changed in the Southeast in the last 50 years?*\n"
+        "- *Compare temperature trends between New York Central Park and Los Angeles Intl from the 1950s to 2020s*\n"
         "- *Plot global temperature anomalies*\n"
         "- *Warmest decades on record globally*"
     )

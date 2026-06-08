@@ -25,7 +25,11 @@ MODEL_ID = os.environ.get("CLIMATE_RAG_MODEL", "us.anthropic.claude-sonnet-4-6")
 
 SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "system_prompt.txt").read_text()
 
-model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
+model = BedrockModel(
+    model_id=MODEL_ID,
+    region_name=REGION,
+    boto_client_config={"read_timeout": 120, "connect_timeout": 10},
+)
 
 tools_list = [search_climate_data, generate_chart]
 if _memory_available:
@@ -58,7 +62,41 @@ def handle_request(prompt: str, session_id: str = None, actor_id: str = "default
     os.makedirs(chart_dir, exist_ok=True)
     before = set(_glob.glob(os.path.join(chart_dir, "*.png")))
 
-    response = agent(prompt)
+    # Prevent context window overflow:
+    # Bedrock Claude Sonnet has a 200K token context window, but tool calls
+    # and RAG results can fill it quickly. Trim conversation history to
+    # keep only the last N messages (preserving system prompt).
+    MAX_HISTORY_MESSAGES = 20  # ~20 turns = 10 user/assistant pairs
+    if hasattr(agent, "messages") and len(agent.messages) > MAX_HISTORY_MESSAGES:
+        # Keep the most recent messages, discard oldest
+        agent.messages = agent.messages[-MAX_HISTORY_MESSAGES:]
+
+    # Call the agent with context overflow recovery
+    try:
+        response = agent(prompt)
+    except Exception as e:
+        error_str = str(e).lower()
+        if "too many tokens" in error_str or "context" in error_str or "overflow" in error_str or "input is too long" in error_str:
+            # Context overflow — clear history and retry with just this prompt
+            print("  ⚠️  Context overflow detected — trimming history and retrying...")
+            agent.messages = []
+            try:
+                response = agent(prompt)
+            except Exception:
+                return {
+                    "response": (
+                        "I apologize, but the conversation has grown too large for me to process. "
+                        "I've cleared my context. Please re-ask your question."
+                    ),
+                    "session_id": session_id,
+                    "charts": [],
+                    "tools_called": [],
+                    "guardrail_action": "CONTEXT_OVERFLOW",
+                }
+        else:
+            # Non-overflow error — re-raise
+            raise
+
     result = str(response)
 
     # Extract tool names that were called during this invocation.

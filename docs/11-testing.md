@@ -1,248 +1,296 @@
-# ClimateRAG — Testing Documentation
+# ClimateRAG — Testing & Evaluation Documentation
 
-**Date:** 2026-06-03 | **Version:** 1.0
+**Date:** 2026-06-06 | **Version:** 2.0
 
 ---
 
 ## 1. Overview
 
-ClimateRAG uses a two-tier testing strategy:
+ClimateRAG uses a four-tier testing and evaluation strategy:
 
 | Tier | Location | AWS Required | Run Command |
 |---|---|---|---|
 | **Unit Tests** | `tests/unit/` | No (all mocked) | `python -m pytest tests/unit` |
-| **Integration Tests** | `tests/integration/` | Yes (real credentials) | `python -m pytest tests/integration -m integration` |
+| **Integration Tests** | `tests/integration/` | Yes (credentials) | `python -m pytest tests/integration -m integration` |
+| **Load/Stress Tests** | `tests/load/` | Partial (failover=mocked, throughput=AWS) | `python -m pytest tests/load/` |
+| **Eval Scripts** | `eval/` | Yes (Bedrock + FAISS) | `python eval/run_retrieval_eval.py` / `python eval/run_eval.py` |
 
 ## 2. Test Suite Summary
 
-### Unit Tests (71 tests — run offline)
+### Unit Tests (136+ tests — run offline)
 
 | Module | Tests | Coverage | What it validates |
 |---|---|---|---|
-| `test_ingest_ghcn.py` | 16 | 74% | CSV parsing, chunking by station+decade, filtering, metadata |
-| `test_build_index.py` | 5 | 60% | FAISS index construction, dimension, search correctness |
-| `test_embeddings.py` | 5 | 72% | Titan embedding invocation, text truncation, field preservation |
-| `test_rag_tool.py` | 3 | 96% | Vector search with mocked S3 download and Bedrock embedding |
+| `test_ingest_ghcn.py` | 20 | 99% | CSV parsing, chunking, 37 stations, all 7 regions, warming rates |
+| `test_build_index.py` | 8 | 96% | FAISS construction, save/upload, main orchestration |
+| `test_build_index_full.py` | 4 | 96% | S3 upload, index readability |
+| `test_embeddings.py` | 5 | 95% | Titan embedding invocation, text truncation, field preservation |
+| `test_embeddings_full.py` | 2 | 95% | Main orchestration, missing file handling |
+| `test_rag_tool.py` | 14 | 93% | Vector search, confidence scoring, citations, multi-entity |
 | `test_chart_tool.py` | 5 | 95% | Code Interpreter invocation, PNG saving, error handling |
 | `test_memory_tool.py` | 6 | 92% | Memory read/write via mocked AgentCore SDK |
+| `test_guardrails.py` | 7 | 88% | Input/output guardrails, fail-open behavior |
 | `test_lambda_handlers.py` | 8 | 100%/95% | NASA POWER and NOAA NCEI proxy handlers |
-| `test_agent_main.py` | 8 | 83% | Request handling, session management, chart detection |
-| `test_cdk_handler.py` | 9 | 67% | Custom resource on_event + is_complete for all 3 resource types |
+| `test_agent_main.py` | 8 | 76% | Request handling, session management, chart detection |
+| `test_cdk_handler.py` | 12 | 75% | Custom resource on_event + is_complete |
+| `test_cdk_handler_full.py` | 14 | 75% | Edge cases, unsupported types, gateway update/delete |
+| `test_retrieval_metrics.py` | 19 | N/A | Recall@K, Precision@K, MRR, NDCG correctness |
+| `test_ingest_ghcn_full.py` | 4 | 99% | Download, fallback, main orchestration |
 
-### Integration Tests (10 tests — require AWS credentials)
+### Load/Stress Tests (18 tests)
+
+| Module | Tests | What it validates |
+|---|---|---|
+| `test_throughput.py` | 7 | QPS benchmarks, concurrency, agent latency |
+| `test_failover.py` | 11 | Graceful degradation when S3/Bedrock/Guardrails/LLM unavailable |
+
+### Integration Tests (10 tests — require AWS)
 
 | Class | Tests | What it validates |
 |---|---|---|
 | `TestSTSIdentity` | 1 | AWS credentials are valid |
-| `TestS3Connectivity` | 3 | Bucket exists, FAISS index and metadata files present |
-| `TestBedrockEmbeddings` | 2 | Titan Embeddings v2 model invocation, dimension consistency |
-| `TestAgentCoreControlPlane` | 3 | List memories, code interpreters, and gateways |
+| `TestS3Connectivity` | 3 | Bucket exists, FAISS index present |
+| `TestBedrockEmbeddings` | 2 | Titan v2 model invocation |
+| `TestAgentCoreControlPlane` | 3 | List memories, code interpreters, gateways |
 | `TestSSMParameters` | 1 | SSM Parameter Store read access |
 
-## 3. Coverage Report
+## 3. Evaluation Scripts
 
-```
-Name                                                Stmts   Miss  Cover
----------------------------------------------------------------------------------
-agent/main.py                                          48      8    83%
-agent/tools/chart_tool.py                              41      2    95%
-agent/tools/memory_tool.py                             24      2    92%
-agent/tools/rag_tool.py                                46      2    96%
-cdk/custom_resources/agentcore_handler/handler.py     139     14    90%
-gateway/lambda_nasa_power/handler.py                   16      0   100%
-gateway/lambda_noaa_ncei/handler.py                    21      1    95%
-ingest/build_index.py                                  52      2    96%
-ingest/embeddings.py                                   39      2    95%
-ingest/ingest_ghcn.py                                  66      1    98%
----------------------------------------------------------------------------------
-TOTAL                                                 492     34    93%
-```
+### Retrieval Evaluation (`eval/run_retrieval_eval.py`)
 
-**Overall: 93% coverage** (target: ≥ 80%)
+Measures retrieval quality independent of LLM generation.
 
-**Critical path coverage (target: ≥ 90%):**
-- RAG tool (vector search): 96%
-- Chart tool (Code Interpreter): 95%
-- Memory tool: 92%
-- CDK custom resource handler: 90%
-- Lambda handlers: 100% / 95%
-- FAISS index build: 96%
-- Embeddings: 95%
-- GHCN ingestion: 98%
+**Metrics and thresholds (all at 90%):**
 
-**Excluded from coverage** (not yet implemented):
-- `ingest/ingest_gistemp.py`
-- `ingest/ingest_power.py`
-
-## 4. Uncovered Lines — Explanation
-
-The 34 uncovered lines (7%) fall into three categories:
-
-### Category 1: `__main__` CLI blocks (intentionally untested)
-
-| File | Lines | Code |
+| Metric | Threshold | What it measures |
 |---|---|---|
-| `agent/main.py` | 78-82 | `if __name__ == "__main__": ...` CLI entry point |
-| `ingest/ingest_ghcn.py` | 174 | `if __name__ == "__main__": main()` |
-| `ingest/build_index.py` | 81 | `if __name__ == "__main__": main()` |
-| `ingest/embeddings.py` | 61 | `if __name__ == "__main__": main()` |
+| Recall@K | 90% | Fraction of expected relevant items found in top-K |
+| Precision@K | 90% | Fraction of top-K results that are relevant |
+| MRR | 0.9 | Reciprocal rank of first relevant result |
+| NDCG@K | 0.9 | Normalized ranking quality (0-1 scale) |
 
-**Why not tested:** These are script-level convenience wrappers for running modules directly (`python -m ingest.build_index`). The underlying functions they call (`main()`, `handle_request()`) ARE fully tested. Testing `__main__` blocks requires spawning subprocesses, which adds complexity without meaningful coverage gains.
+**Key features:**
+- Uses LOCAL FAISS index (bypasses potentially stale S3)
+- Resets module-level index cache before each run
+- Multi-entity query support (comparison queries search separately per entity)
+- Per-query `top_k_override` for queries with limited relevant documents
+- 10 ground truth queries covering all 3 datasets and 7 regions
 
-### Category 2: Import-time conditional paths
+**Run:** `python eval/run_retrieval_eval.py`
 
-| File | Lines | Code | Why |
-|---|---|---|---|
-| `agent/main.py` | 20-21 | `_memory_available = True` inside `try/except ImportError` | The memory SDK IS installed in the test env, so this line runs — but the coverage tool marks it oddly due to the try/except structure. The `False` path (line 16) is the default. |
-| `agent/main.py` | 48, 63 | `save_turn(...)` calls guarded by `if _memory_available and os.environ.get("CLIMATE_RAG_MEMORY_ID")` | Tests deliberately unset `CLIMATE_RAG_MEMORY_ID` to avoid needing a real memory service. The memory tool is tested separately in `test_memory_tool.py`. |
-| `agent/tools/memory_tool.py` | 15-16 | `mgr = MemorySessionManager(...)` / `return mgr.create_memory_session(...)` | Tests mock `_get_session()` at the function level, so the real constructor never runs. Testing it would require a live AgentCore Memory. |
-| `agent/tools/rag_tool.py` | 37 | `if _index is not None: return` (early-exit cache guard) | First call always loads the index (cache is empty). Second-call caching is an optimization, not a logic branch worth testing. |
-| `agent/tools/rag_tool.py` | 75 | `if idx == -1: continue` | FAISS returns -1 when fewer results exist than `top_k`. Hard to trigger with 10 test vectors and top_k=3. |
+### LLM-as-Judge Evaluation (`eval/run_eval.py`)
 
-### Category 3: Error handling branches in CDK handler
+End-to-end quality assessment using Claude Sonnet as judge.
 
-| File | Lines | Code | Why |
-|---|---|---|---|
-| `handler.py` | 35 | `logger.info(...)` inside `on_event` | Logging statement after boto3 client creation — always runs in prod but coverage tool sometimes misattributes. |
-| `handler.py` | 119, 140-141, 167 | `logger.info(...)` inside Delete success paths | Covered by tests, but the `ResourceNotFoundException` branch is what's tested — the success log on the "not found" path is the one that runs. |
-| `handler.py` | 194-195, 232, 236 | Gateway Delete/Update log lines | Update and delete are tested, but some specific log lines within the try/except are on the "no exception" path which tests exercise via the "not found" mock. |
-| `handler.py` | 253-254, 262 | `_create_gateway_targets` loop body | Never entered because tests pass `Targets: []` (empty list). Gateway target creation is tested via the `TestOnEventGateway::test_create_gateway` mock assertions. |
-| `handler.py` | 297-298 | `_delete_gateway_targets` `ClientError` pass | The except-pass branch for when `list_gateway_targets` fails. Tests mock it to succeed. |
-| `gateway/lambda_noaa_ncei/handler.py` | 39 | `req.add_header("token", CDO_TOKEN)` | Only runs when `NOAA_CDO_TOKEN` env var is set. Tests don't set it. |
-| `agent/tools/chart_tool.py` | 91-92 | `except Exception: pass` in `finally` block | Session cleanup error swallowing — only triggers if `stop_code_interpreter_session` itself throws, which is a network edge case. |
-| `ingest/build_index.py` | 23 | `print(f"Loaded {len(all_chunks)} embedded chunks")` | The module-level `CHUNK_DIR` path read happens at import time; tests reload the module with a patched value, so the initial print never fires. |
+**Dimensions scored (1-5 each, threshold 4.5):**
 
-## 4. Running Tests
-
-### Prerequisites
-
-```powershell
-# Activate virtual environment
-.venv\Scripts\Activate.ps1
-
-# Install test dependencies
-pip install pytest pytest-cov
-```
-
-### Run all unit tests (no AWS needed)
-
-```powershell
-python -m pytest tests/unit -v
-```
-
-### Run with coverage report
-
-```powershell
-python -m pytest tests/ -m "not integration" --cov=agent --cov=ingest --cov=gateway --cov=cdk/custom_resources --cov-report=term-missing
-```
-
-### Run integration tests (requires `aws sso login`)
-
-```powershell
-# Ensure credentials are active
-aws sso login --profile YOUR_PROFILE
-$env:AWS_PROFILE = "YOUR_PROFILE"
-$env:CLIMATE_RAG_BUCKET = "climate-rag-index-YOUR_ACCOUNT_ID"
-
-# Run integration tests only
-python -m pytest tests/integration -m integration -v
-```
-
-### Run everything
-
-```powershell
-python -m pytest tests/ -v --cov=agent --cov=ingest --cov=gateway --cov=cdk/custom_resources
-```
-
-## 5. Test Architecture
-
-### Mocking Strategy
-
-Unit tests mock all AWS service calls at the boto3 client level:
-
-- **S3:** `boto3.client("s3")` → mocked `download_file`, `head_bucket`, `upload_file`
-- **Bedrock Runtime:** `boto3.client("bedrock-runtime")` → mocked `invoke_model`
-- **AgentCore Control:** `boto3.client("bedrock-agentcore-control")` → mocked CRUD operations
-- **AgentCore Runtime:** `boto3.client("bedrock-agentcore")` → mocked Code Interpreter sessions
-- **Memory SDK:** `MemorySessionManager` → mocked at the session level
-
-### Fixtures (conftest.py)
-
-| Fixture | Purpose |
-|---|---|
-| `env_defaults` | Sets safe environment variables for all tests (autouse) |
-| `sample_chunks` | 10 sample embedded chunks with random 1024-dim vectors |
-| `sample_chunks_dir` | Writes sample chunks to a temp JSONL file for index tests |
-| `ghcn_csv_sample` | Sample GHCN-format CSV text for parsing tests |
-
-### Test Markers
-
-| Marker | Purpose |
-|---|---|
-| `integration` | Tests that require real AWS credentials |
-
-Deselect integration tests: `python -m pytest -m "not integration"`
-
-## 6. Adding New Tests
-
-Follow these patterns when adding tests for new functionality:
-
-1. **New ingest module** — copy `test_ingest_ghcn.py` pattern; test parsing logic with sample data
-2. **New agent tool** — mock the boto3 client; test success path, error path, and edge cases
-3. **New CDK resource** — add to `test_cdk_handler.py`; test on_event Create/Delete and is_complete status transitions
-4. **New Lambda handler** — add to `test_lambda_handlers.py`; mock `urllib.request.urlopen`
-
-## 7. Security Analysis (Bandit)
-
-The project uses [bandit](https://bandit.readthedocs.io/) for static security analysis.
-
-### Running Bandit
-
-```powershell
-pip install bandit
-bandit -r agent/ gateway/ ingest/ cdk/custom_resources/ -f txt
-```
-
-### Findings Summary (as of 2026-06-03)
-
-| Severity | Count | Description |
+| Dimension | Weight | What it measures |
 |---|---|---|
-| Medium | 7 | **B108** — Hardcoded `/tmp` directory as default for `CHUNK_OUTPUT_DIR` and `CHART_DIR` |
-| Medium | 5 | **B310** — `urllib.request.urlopen` without explicit scheme restriction |
-| Low | 1 | **B110** — `try/except/pass` in chart tool session cleanup |
+| Correctness | 30% | Factual accuracy vs. known climate science |
+| Relevance | 20% | Does the answer address the question? |
+| Source attribution | 20% | Inline [SOURCE: Dataset \| Station \| Period] citations |
+| Confidence appropriate | 15% | Proper uncertainty expression |
+| Citation | 10% | Dataset name referenced correctly |
+| Tool use | 5% | Correct tools called |
 
-### Assessment
+**Composite threshold:** 0.9
 
-| Finding | Risk | Justification |
+**Key features:**
+- Disables memory during eval (non-critical, avoids token expiry issues)
+- Captures actual tool calls from agent for accurate tool_use scoring
+- 15 benchmark queries covering all regions, datasets, comparisons
+- Saves results to `eval/results/` with timestamps
+
+**Run:** `python eval/run_eval.py`
+
+### Keyword Evaluation (`eval/run_keyword_eval.py`)
+
+Simple legacy scorer. Deprecated in favor of `run_eval.py`.
+
+## 4. Data Ingestion Pipeline
+
+### Cleanup Script (`ingest/cleanup.py`)
+
+**MUST be run before re-ingestion when chunk text format changes.**
+
+Removes:
+1. `CHUNK_OUTPUT_DIR/embedded/` (old Titan v2 embeddings)
+2. `CHUNK_OUTPUT_DIR/index/` (old local FAISS index)
+3. `CHUNK_OUTPUT_DIR/*.jsonl` (old raw chunk files)
+4. `s3://{CLIMATE_RAG_BUCKET}/index/` (stale S3 index)
+
+### Full Pipeline (`ingest/ingest_all.py`)
+
+Single command that:
+1. Calls `cleanup.py` automatically
+2. Ingests GHCN v4 (37 stations, region-forward chunk text with synonyms)
+3. Ingests GISTEMP v4 (global anomalies with "warmest decade" annotations)
+4. Ingests NASA POWER (6 regions, precipitation/solar/temperature)
+5. Generates Titan v2 embeddings for all chunks
+6. Verifies all embedded files were generated (exits on failure)
+7. Builds FAISS IndexFlatIP and uploads to S3
+8. Prints verification of final index content
+
+**Run:** `python ingest/ingest_all.py`
+
+## 5. Configuration
+
+### Environment Variables (`.env` + `config.py`)
+
+All scripts use `config.py` which:
+1. Loads `.env` file from project root
+2. Auto-detects AWS profile from `aws configure list-profiles`
+3. Sets `AWS_PROFILE` for boto3 Session usage
+4. Reads missing values from SSM Parameter Store
+5. Resolves `CLIMATE_RAG_BUCKET` from CloudFormation stack output
+
+**Key env vars:**
+
+| Variable | Source | Purpose |
 |---|---|---|
-| B108 (hardcoded /tmp) | **Acceptable** | These are env-var overridable defaults. In Lambda/AgentCore Runtime, `/tmp` is the only writable directory. Production deployments set `CHUNK_OUTPUT_DIR` and `CLIMATE_RAG_CHART_DIR` explicitly. |
-| B310 (urllib.urlopen) | **Acceptable** | URLs are hardcoded constants (NASA/NOAA API endpoints), never user-supplied. No `file://` scheme possible. The Lambda handlers only call well-known HTTPS APIs. |
-| B110 (try/except/pass) | **Acceptable** | This is a best-effort cleanup of Code Interpreter sessions in a `finally` block. Session leak is harmless — AgentCore auto-expires idle sessions. |
+| `AWS_PROFILE` | `.env` or auto-detected | SSO profile for boto3 |
+| `AWS_REGION` | `.env` (default: us-east-1) | AWS region |
+| `CLIMATE_RAG_BUCKET` | CloudFormation / SSM | S3 bucket for FAISS index |
+| `CLIMATE_RAG_MEMORY_ID` | SSM | AgentCore Memory ID |
+| `CLIMATE_RAG_CODE_INTERPRETER_ID` | SSM | AgentCore Code Interpreter ID |
+| `CHUNK_OUTPUT_DIR` | `.env` | Local chunk/embedding/index output |
 
-### Suppressing Known Acceptable Findings
+### Profile-Aware boto3 Sessions
 
-If desired, add `# nosec B108` inline comments to suppress known-acceptable findings:
+All scripts that call AWS use profile-aware sessions:
 ```python
-CHART_DIR = os.environ.get("CLIMATE_RAG_CHART_DIR", "/tmp/climate-rag-charts")  # nosec B108
+profile = os.environ.get("AWS_PROFILE")
+session = boto3.Session(profile_name=profile, region_name=REGION)
+client = session.client("service-name")
 ```
+
+Files updated: `embeddings.py`, `build_index.py`, `rag_tool.py`, `cleanup.py`, `config.py`
+
+## 6. Architecture Decisions
+
+### Multi-Entity Search (`rag_tool.py`)
+
+For queries comparing two locations ("Compare NY and LA"):
+- Detects comparison patterns: "compare", "between X and Y", "vs"
+- Splits into two sub-queries, one per entity
+- Searches each with `top_k=5` independently
+- Merges, deduplicates, and ranks by score
+- Returns top-K combined results ensuring both entities are represented
+
+### Confidence Scoring
+
+FAISS cosine similarity mapped to confidence levels:
+- **HIGH** (≥ 0.75): Direct confident answer
+- **MEDIUM** (≥ 0.55): Present with partial-data caveat
+- **LOW** (≥ 0.40): Strong uncertainty hedging
+- **INSUFFICIENT** (< 0.40): "I don't know" fallback
+
+### Memory Resilience
+
+Memory (`save_turn`) is wrapped in try/except in `main.py`:
+- If memory fails (expired token, service down), the request still completes
+- Warning is printed but never crashes the agent
+- Eval scripts explicitly disable memory to avoid token issues
+
+### Chunk Text Design (Embedding Optimization)
+
+GHCN chunks lead with:
+```
+Southeast (US Southeast, Southeastern US) United States climate data:
+Atlanta Hartsfield, GA temperature records.
+City: Atlanta, GA. This is NOAA GHCN v4 monthly temperature data for
+Atlanta in the US Southeast region.
+```
+
+This ensures:
+- Region synonyms match diverse query phrasings
+- City name appears prominently for city-specific queries
+- Region is repeated at the end for embedding weight
+
+### Synthetic Data Calibration
+
+When live APIs are unavailable:
+- **GHCN**: Region-specific warming rates (Alaska 0.015°C/yr, Hawaii 0.004°C/yr — Arctic amplification)
+- **GISTEMP**: Verified decadal anomalies from NASA GISS published data
+- **NASA POWER**: Temperatures from NOAA Climate Normals, solar from NREL NSRDB
+
+## 7. Security
+
+### Bandit Scan Results
+
+**0 High, 0 Medium severity issues.**
+
+All findings resolved:
+- B108 (hardcoded /tmp): Replaced with `tempfile.gettempdir()`
+- B310 (urlopen): Suppressed with `# nosec B310` (hardcoded HTTPS constants)
+
+### Bedrock Guardrails
+
+Production guardrail covers:
+- Content filters (hate, violence, sexual, misconduct, prompt attacks)
+- Topic policy (blocks political/medical/financial/illegal queries)
+- PII protection (anonymize email/phone, block SSN/credit cards/AWS keys)
+- Contextual grounding (hallucination detection, relevance check)
+- Profanity filter
+
+Guardrails fail-open: if the service is unavailable, requests proceed.
 
 ## 8. CI/CD Integration
 
-Recommended pipeline steps:
-
 ```yaml
 steps:
+  - name: Lint (ruff)
+    run: ruff check agent/ gateway/ ingest/ cdk/custom_resources/
+
   - name: Unit Tests
     run: python -m pytest tests/unit -v --cov --cov-fail-under=80
 
-  - name: Security Scan
-    run: bandit -r agent/ gateway/ ingest/ cdk/custom_resources/ -f json -o bandit-report.json
+  - name: Security Scan (bandit)
+    run: bandit -r agent/ gateway/ ingest/ cdk/custom_resources/ --severity-level high
 
-  - name: Integration Tests (after deploy)
+  - name: Integration Tests (post-deploy)
     run: python -m pytest tests/integration -m integration -v
-    env:
-      AWS_REGION: us-east-1
-      CLIMATE_RAG_BUCKET: ${{ outputs.bucket_name }}
+
+  - name: Retrieval Eval (post-ingest)
+    run: python eval/run_retrieval_eval.py
 ```
 
-Unit tests and bandit should gate every PR. Integration tests should run post-deployment to validate infrastructure.
+## 9. Running Tests
+
+```powershell
+# Unit tests (no AWS needed)
+python -m pytest tests/unit -v
+
+# Unit tests with coverage
+python -m pytest tests/unit --cov=agent --cov=ingest --cov=gateway --cov=cdk/custom_resources --cov-report=term-missing
+
+# Load tests - failover (mocked, no AWS)
+python -m pytest tests/load/test_failover.py -v
+
+# Load tests - throughput (requires AWS)
+python -m pytest tests/load/test_throughput.py -v -s --timeout=300
+
+# Integration tests (requires AWS)
+python -m pytest tests/integration -m integration -v
+
+# Retrieval eval
+python eval/run_retrieval_eval.py
+
+# Full LLM-as-Judge eval
+python eval/run_eval.py
+
+# Single query eval
+python eval/run_eval.py --id eval_01 eval_03
+```
+
+## 10. Full Rebuild Sequence
+
+When chunk text format or ingestion logic changes:
+
+```powershell
+aws sso login
+python ingest/cleanup.py          # Clear local + S3 stale data
+python ingest/ingest_all.py       # Rebuild everything
+python eval/run_retrieval_eval.py # Verify retrieval quality
+python eval/run_eval.py           # Verify end-to-end quality
+```

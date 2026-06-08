@@ -33,7 +33,7 @@ indent-style = "space"
 
 [tool.coverage.run]
 source = ["agent", "ingest", "gateway", "cdk/custom_resources"]
-omit = ["tests/*", ".venv/*", "ingest/ingest_gistemp.py", "ingest/ingest_power.py"]
+omit = ["tests/*", ".venv/*", "ingest/ingest_gistemp.py", "ingest/ingest_power.py", "ingest/ingest_all.py", "ingest/cleanup.py"]
 
 [tool.coverage.report]
 show_missing = true

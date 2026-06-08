@@ -12,8 +12,6 @@ All environment variables are then accessible via os.environ as usual.
 """
 
 import os
-import subprocess
-import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -23,28 +21,8 @@ _PROJECT_ROOT = Path(__file__).parent
 _ENV_FILE = _PROJECT_ROOT / ".env"
 
 if _ENV_FILE.exists():
-    load_dotenv(_ENV_FILE, override=False)
-
-# ── Step 1b: Auto-detect AWS profile if not already set ───────────────────────
-# boto3 needs AWS_PROFILE or AWS_DEFAULT_PROFILE to use SSO credentials.
-# If not set, find the first SSO profile from ~/.aws/config.
-if not os.environ.get("AWS_PROFILE") and not os.environ.get("AWS_DEFAULT_PROFILE"):
-    try:
-        # Use 'aws configure list-profiles' to find available profiles
-        result = subprocess.run(
-            ["aws", "configure", "list-profiles"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0:
-            profiles = [p.strip() for p in result.stdout.strip().split("\n") if p.strip()]
-            if profiles:
-                # Use the first non-default profile (likely the SSO one)
-                profile = profiles[0] if len(profiles) == 1 else next(
-                    (p for p in profiles if p != "default"), profiles[0]
-                )
-                os.environ["AWS_PROFILE"] = profile
-    except Exception:
-        pass  # No AWS CLI available — boto3 will use default credential chain
+    # override=True ensures .env values take priority over stale shell env
+    load_dotenv(_ENV_FILE, override=True)
 
 # ── Step 2: Set sensible defaults for anything not in .env ────────────────────
 _DEFAULTS = {
@@ -67,51 +45,65 @@ for key, default in _DEFAULTS.items():
 
 # ── Step 3: Try to fill missing values from SSM (if AWS credentials work) ─────
 def _load_from_ssm():
-    """Attempt to read config from SSM Parameter Store. Fails silently."""
-    try:
-        import boto3
+    """Attempt to read config from SSM Parameter Store. Fails silently.
 
-        # Create session with explicit profile if set
-        profile = os.environ.get("AWS_PROFILE")
-        session = boto3.Session(
-            profile_name=profile,
-            region_name=os.environ["AWS_REGION"],
-        )
-        ssm = session.client("ssm")
+    Has a 5-second overall timeout to prevent blocking app startup.
+    """
+    import threading
 
-        ssm_params = {
-            "CLIMATE_RAG_MEMORY_ID": "/climate-rag/memory-id",
-            "CLIMATE_RAG_CODE_INTERPRETER_ID": "/climate-rag/code-interpreter-id",
-            "CLIMATE_RAG_GUARDRAIL_ID": "/climate-rag/guardrail-id",
-            "CLIMATE_RAG_GUARDRAIL_VERSION": "/climate-rag/guardrail-version",
-        }
+    def _do_load():
+        try:
+            import boto3
 
-        for env_var, param_name in ssm_params.items():
-            if os.environ.get(env_var):
-                continue  # Already set from .env — don't override
-            try:
-                resp = ssm.get_parameter(Name=param_name)
-                os.environ[env_var] = resp["Parameter"]["Value"]
-            except Exception:
-                pass
+            profile = os.environ.get("AWS_PROFILE")
+            session = boto3.Session(
+                profile_name=profile,
+                region_name=os.environ["AWS_REGION"],
+            )
+            ssm = session.client("ssm")
 
-        # Try to get bucket from CloudFormation if not set
-        if not os.environ.get("CLIMATE_RAG_BUCKET"):
-            try:
-                cfn = session.client("cloudformation")
-                stacks = cfn.describe_stacks(StackName="ClimateRagDataStack")["Stacks"]
-                for output in stacks[0].get("Outputs", []):
-                    if output["OutputKey"] == "IndexBucketName":
-                        os.environ["CLIMATE_RAG_BUCKET"] = output["OutputValue"]
-            except Exception:
-                pass
+            ssm_params = {
+                "CLIMATE_RAG_MEMORY_ID": "/climate-rag/memory-id",
+                "CLIMATE_RAG_CODE_INTERPRETER_ID": "/climate-rag/code-interpreter-id",
+                "CLIMATE_RAG_GUARDRAIL_ID": "/climate-rag/guardrail-id",
+                "CLIMATE_RAG_GUARDRAIL_VERSION": "/climate-rag/guardrail-version",
+            }
 
-    except Exception:
-        pass  # No credentials or boto3 not available — that's fine
+            for env_var, param_name in ssm_params.items():
+                if os.environ.get(env_var):
+                    continue
+                try:
+                    resp = ssm.get_parameter(Name=param_name)
+                    os.environ[env_var] = resp["Parameter"]["Value"]
+                except Exception:
+                    pass
+
+            # Try to get bucket from CloudFormation if not set
+            if not os.environ.get("CLIMATE_RAG_BUCKET"):
+                try:
+                    cfn = session.client("cloudformation")
+                    stacks = cfn.describe_stacks(StackName="ClimateRagDataStack")["Stacks"]
+                    for output in stacks[0].get("Outputs", []):
+                        if output["OutputKey"] == "IndexBucketName":
+                            os.environ["CLIMATE_RAG_BUCKET"] = output["OutputValue"]
+                except Exception:
+                    pass
+
+        except Exception:
+            pass
+
+    # Run with 5-second timeout — don't block app startup
+    thread = threading.Thread(target=_do_load, daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+    if thread.is_alive():
+        pass  # Timed out — SSM values not loaded, app continues with defaults
 
 
+# Load SSM/CloudFormation values at import time.
+# Has a 5-second timeout so it won't block indefinitely if credentials are expired.
 _load_from_ssm()
 
 # ── Ensure output directories exist ──────────────────────────────────────────
-os.makedirs(os.environ["CHUNK_OUTPUT_DIR"], exist_ok=True)
-os.makedirs(os.environ["CLIMATE_RAG_CHART_DIR"], exist_ok=True)
+os.makedirs(os.environ.get("CHUNK_OUTPUT_DIR", "."), exist_ok=True)
+os.makedirs(os.environ.get("CLIMATE_RAG_CHART_DIR", "."), exist_ok=True)
