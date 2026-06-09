@@ -10,6 +10,7 @@
       "package-lock.json",
       "yarn.lock",
       "requirements.txt",
+      "requirements.lock",
       "poetry.lock",
       "Pipfile.lock"
     ]
