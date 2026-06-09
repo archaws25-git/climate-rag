@@ -139,11 +139,11 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
         warmth_note = ""
         if avg > 0.8:
             warmth_note = (
-                f"This is one of the warmest decades on record globally. "
-                f"This decade ranks among the hottest in recorded history.\n"
+                "This is one of the warmest decades on record globally. "
+                "This decade ranks among the hottest in recorded history.\n"
             )
         elif avg > 0.4:
-            warmth_note = f"This decade shows significant global warming above the baseline.\n"
+            warmth_note = "This decade shows significant global warming above the baseline.\n"
 
         text = (
             f"Global temperature anomaly data for the {decade} decade.\n"

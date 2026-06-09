@@ -35,7 +35,7 @@ def load_config_from_ssm():
     Falls back to environment variables if SSM read fails (e.g., no
     credentials, parameters don't exist yet).
     """
-    config = {}
+    result = {}
     try:
         ssm = boto3.client("ssm", region_name=REGION)
         for env_var, param_name in SSM_PARAMS.items():
@@ -44,7 +44,7 @@ def load_config_from_ssm():
             try:
                 resp = ssm.get_parameter(Name=param_name)
                 value = resp["Parameter"]["Value"]
-                config[env_var] = value
+                result[env_var] = value
                 # Also set as env var so agent/main.py can read them
                 os.environ[env_var] = value
             except Exception:
@@ -54,16 +54,16 @@ def load_config_from_ssm():
 
     # Fall back to env vars for anything SSM didn't provide
     for env_var in SSM_PARAMS:
-        if env_var not in config:
+        if env_var not in result:
             val = os.environ.get(env_var, "")
             if val:
-                config[env_var] = val
+                result[env_var] = val
 
-    return config
+    return result
 
 
 # ── Load config at startup ────────────────────────────────────────────
-config = load_config_from_ssm()
+app_config = load_config_from_ssm()
 
 # ── Page Setup ────────────────────────────────────────────────────────
 st.set_page_config(page_title="ClimateRAG", page_icon="🌍", layout="wide")
@@ -94,8 +94,8 @@ with st.sidebar:
 
     # Show config status
     st.header("⚙️ Config")
-    memory_id = config.get("CLIMATE_RAG_MEMORY_ID", "")
-    ci_id = config.get("CLIMATE_RAG_CODE_INTERPRETER_ID", "")
+    memory_id = app_config.get("CLIMATE_RAG_MEMORY_ID", "")
+    ci_id = app_config.get("CLIMATE_RAG_CODE_INTERPRETER_ID", "")
     if memory_id:
         st.text(f"Memory: ✅ {memory_id[:20]}...")
     else:
@@ -109,6 +109,7 @@ with st.sidebar:
     if st.button("🔄 New Session"):
         st.session_state.messages = []
         st.session_state.session_id = str(uuid.uuid4())
+        st.session_state.pop("last_latency", None)
         st.rerun()
 
 
@@ -138,11 +139,28 @@ if prompt := st.chat_input("Ask about climate trends..."):
         try:
             handle_request, handle_request_streaming = load_handler()
 
+            # Initialize latency tracker
+            from latency_tracker import LatencyTracker
+            tracker = LatencyTracker(request_id=st.session_state.session_id)
+            tracker.start("e2e")
+
             # Stream response token-by-token
             stream_gen = handle_request_streaming(
                 prompt, st.session_state.session_id
             )
-            text = st.write_stream(stream_gen)
+
+            # Wrap the generator to capture TTFT and token count
+            tracker.record_stream_start()
+
+            def _tracked_stream():
+                for chunk in stream_gen:
+                    tracker.record_first_token()
+                    tracker.increment_tokens()
+                    yield chunk
+
+            text = st.write_stream(_tracked_stream())
+            tracker.stop("e2e")
+            tracker.finalize()
 
             # Retrieve metadata (charts, tools) after streaming completes
             from main import handle_request_streaming as _hrs
@@ -155,12 +173,34 @@ if prompt := st.chat_input("Ask about climate trends..."):
                 if os.path.exists(chart_path):
                     st.image(chart_path, use_container_width=True)
 
-            # Show metadata expander
+            # Show metadata expander with latency breakdown
             with st.expander("📋 Response metadata", expanded=False):
                 if tools_called:
                     st.caption(f"**Tools used:** {', '.join(set(tools_called))}")
                 st.caption(f"**Session:** {st.session_state.session_id[:8]}...")
                 st.caption("**Streaming:** ✅ Token-by-token via ConverseStream")
+
+            # Store latency data in session state
+            latency_data = metadata.get("latency", {})
+            st.session_state["last_latency"] = {
+                "sidebar_text": tracker.format_for_sidebar(),
+                "trace_spans": latency_data.get("trace_spans", []),
+            }
+
+            # Show latency metrics inline
+            with st.expander("⏱️ Latency Breakdown", expanded=False):
+                st.markdown(tracker.format_for_sidebar())
+                trace_spans = latency_data.get("trace_spans", [])
+                if trace_spans:
+                    st.markdown("**OTel Spans:**")
+                    span_rows = []
+                    for span in trace_spans:
+                        name = span.get("name", "?")
+                        dur = span.get("duration_ms", 0)
+                        if dur and dur > 0:
+                            span_rows.append({"Span": name, "Duration (ms)": round(dur, 1)})
+                    if span_rows:
+                        st.dataframe(span_rows, use_container_width=True)
 
             st.session_state.messages.append({
                 "role": "assistant",

@@ -147,9 +147,14 @@ def _score_to_confidence(score: float) -> str:
 
 def _vector_search(query: str, top_k: int) -> list[tuple[int, float]]:
     """FAISS vector search. Returns list of (doc_index, score) pairs."""
-    embedding = _embed_query(query)
-    faiss.normalize_L2(embedding)
-    scores, indices = _index.search(embedding, top_k)
+    from tracing import timed_span
+
+    with timed_span("climate_rag.search.embed_query", {"model": "titan-embed-v2"}):
+        embedding = _embed_query(query)
+        faiss.normalize_L2(embedding)
+
+    with timed_span("climate_rag.search.faiss", {"top_k": top_k, "index_size": _index.ntotal}):
+        scores, indices = _index.search(embedding, top_k)
 
     results = []
     for i, idx in enumerate(indices[0]):
@@ -161,6 +166,8 @@ def _vector_search(query: str, top_k: int) -> list[tuple[int, float]]:
 
 def _bm25_search(query: str, top_k: int) -> list[tuple[int, float]]:
     """BM25 keyword search. Returns list of (doc_index, score) pairs."""
+    from tracing import timed_span
+
     if _bm25_index is None:
         return []
 
@@ -168,10 +175,9 @@ def _bm25_search(query: str, top_k: int) -> list[tuple[int, float]]:
     if not query_tokens:
         return []
 
-    scores = _bm25_index.get_scores(query_tokens)
-
-    # Get top-k indices by score
-    top_indices = np.argsort(scores)[::-1][:top_k]
+    with timed_span("climate_rag.search.bm25", {"query_tokens": len(query_tokens), "top_k": top_k}):
+        scores = _bm25_index.get_scores(query_tokens)
+        top_indices = np.argsort(scores)[::-1][:top_k]
 
     results = []
     for idx in top_indices:
@@ -185,9 +191,7 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
     """Hybrid search combining FAISS vector + BM25 keyword via RRF.
 
     Reciprocal Rank Fusion (RRF) formula:
-        rrf_score(doc) = sum( 1 / (k + rank_i(doc)) ) for each retriever i
-
-    We weight the retrievers:
+        rrf_score(doc) = sum( 1 / (k + rank_i(doc)) ) for each retriever i    We weight the retrievers:
         final_score = VECTOR_WEIGHT * rrf_vector + BM25_WEIGHT * rrf_bm25
     """
     # Run both search backends

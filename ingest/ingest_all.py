@@ -108,7 +108,7 @@ def _generate_synthetic_gistemp_chunks():
         )
         # Identify if this is one of the warmest decades
         if avg > 0.5:
-            text += f"This is among the warmest decades on record globally.\n"
+            text += "This is among the warmest decades on record globally.\n"
         text += "Year-by-year global temperature anomalies:\n"
         for r in records:
             text += f"  {r['year']}: {r['annual_anomaly']:+.3f}°C\n"
@@ -321,7 +321,7 @@ def main():
             print(f"  ✅ embedded/{f}: {lines} embedded chunks")
         else:
             print(f"  ❌ embedded/{f}: MISSING — embeddings failed!")
-            print(f"     Re-run: python ingest/ingest_all.py")
+            print("     Re-run: python ingest/ingest_all.py")
             sys.exit(1)
 
     # Step 5: Build index
@@ -333,7 +333,7 @@ def main():
         sample = json.loads(open(index_path, encoding="utf-8").readline())
         print(f"  ✅ Index built. Sample chunk starts with: {sample['text'][:60]}...")
     else:
-        print(f"  ❌ Index not built!")
+        print("  ❌ Index not built!")
         sys.exit(1)
 
     section("Done!")

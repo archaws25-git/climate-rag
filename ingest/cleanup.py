@@ -34,7 +34,7 @@ def cleanup():
         print("❌ CHUNK_OUTPUT_DIR is not set. Cannot clean up.")
         sys.exit(1)
 
-    print(f"\n🧹 ClimateRAG — Data Cleanup")
+    print("\n🧹 ClimateRAG — Data Cleanup")
     print(f"   Target directory: {CHUNK_DIR}\n")
 
     removed_files = 0
@@ -49,7 +49,7 @@ def cleanup():
         removed_files += file_count
         print(f"  ✅ Removed embedded/ ({file_count} files)")
     else:
-        print(f"  ⬜ embedded/ does not exist (already clean)")
+        print("  ⬜ embedded/ does not exist (already clean)")
 
     # 2. Remove index/ directory (old local FAISS index)
     index_dir = os.path.join(CHUNK_DIR, "index")
@@ -60,7 +60,7 @@ def cleanup():
         removed_files += file_count
         print(f"  ✅ Removed index/ ({file_count} files)")
     else:
-        print(f"  ⬜ index/ does not exist (already clean)")
+        print("  ⬜ index/ does not exist (already clean)")
 
     # 3. Remove raw chunk JSONL files
     if os.path.exists(CHUNK_DIR):
@@ -71,7 +71,7 @@ def cleanup():
         if chunk_files:
             print(f"  ✅ Removed {len(chunk_files)} chunk files: {', '.join(chunk_files)}")
         else:
-            print(f"  ⬜ No chunk .jsonl files found")
+            print("  ⬜ No chunk .jsonl files found")
 
     print(f"\n  Summary: removed {removed_files} files in {removed_dirs} directories")
 
@@ -99,9 +99,9 @@ def cleanup():
             print(f"  ⚠️  Could not clear S3 index: {e}")
             print(f"      Run manually: aws s3 rm s3://{bucket}/index/ --recursive")
     else:
-        print(f"  ⬜ CLIMATE_RAG_BUCKET not set — skipping S3 cleanup")
+        print("  ⬜ CLIMATE_RAG_BUCKET not set — skipping S3 cleanup")
 
-    print(f"  Ready for fresh ingestion: python ingest/ingest_all.py\n")
+    print("  Ready for fresh ingestion: python ingest/ingest_all.py\n")
 
 
 if __name__ == "__main__":

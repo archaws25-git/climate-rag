@@ -217,8 +217,8 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
     """Stream agent response token-by-token via a generator.
 
     Yields text chunks as they arrive from Bedrock ConverseStream.
-    After the generator is exhausted, call get_streaming_metadata() for
-    charts, tools_called, etc.
+    After the generator is exhausted, metadata (charts, tools, latency)
+    is available via handle_request_streaming._last_metadata.
 
     Args:
         prompt: User query.
@@ -228,16 +228,22 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
     Yields:
         str: Text chunks as they stream from the model.
     """
+    from tracing import tracer, start_request_trace, get_request_trace, timed_span
     import asyncio
     import glob as _glob
+    import time as _time
 
     session_id = session_id or str(uuid.uuid4())
+    start_request_trace(session_id)
+    _request_start = _time.perf_counter()
 
+    # ── Stage: Memory Save (user turn) ────────────────────────────
     if _memory_available and os.environ.get("CLIMATE_RAG_MEMORY_ID"):
-        try:
-            save_turn(actor_id, session_id, "user", prompt)
-        except Exception as _mem_err:
-            print(f"  Warning: Error storing turn: {_mem_err}")
+        with timed_span("climate_rag.memory.save_user_turn"):
+            try:
+                save_turn(actor_id, session_id, "user", prompt)
+            except Exception as _mem_err:
+                print(f"  Warning: Error storing turn: {_mem_err}")
 
     # Snapshot charts before call
     chart_dir = os.environ.get(
@@ -247,7 +253,7 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
     os.makedirs(chart_dir, exist_ok=True)
     before = set(_glob.glob(os.path.join(chart_dir, "*.png")))
 
-    # Trim history to prevent context overflow, then sanitize orphaned tool calls
+    # ── Stage: History Management ─────────────────────────────────
     MAX_HISTORY_MESSAGES = 20
     if hasattr(agent, "messages") and len(agent.messages) > MAX_HISTORY_MESSAGES:
         agent.messages = agent.messages[-MAX_HISTORY_MESSAGES:]
@@ -255,19 +261,21 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
     # Reconstruct history from Memory if available and in-process history is empty/corrupt
     if _reconstruction_available and hasattr(agent, "messages"):
         if not agent.messages:
-            # No in-process history — reconstruct from Memory
-            reconstructed = reconstruct_history(actor_id, session_id)
-            if reconstructed:
-                agent.messages = reconstructed
-                print(f"  ℹ️  Reconstructed {len(reconstructed)} messages from Memory")
+            with timed_span("climate_rag.history.reconstruct"):
+                reconstructed = reconstruct_history(actor_id, session_id)
+                if reconstructed:
+                    agent.messages = reconstructed
+                    print(f"  ℹ️  Reconstructed {len(reconstructed)} messages from Memory")
 
     # Sanitize: remove orphaned tool_use messages
     if hasattr(agent, "messages") and agent.messages:
-        _sanitize_tool_history(agent)
+        with timed_span("climate_rag.history.sanitize"):
+            _sanitize_tool_history(agent)
 
-    # Stream tokens from agent via thread + queue (async -> sync bridge)
+    # ── Stage: Agent Streaming ────────────────────────────────────
     full_text = []
     tools_called = []
+    _stream_start = _time.perf_counter()
 
     import queue
     import threading
@@ -350,10 +358,17 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
 
     # Save assistant turn to memory
     if _memory_available and os.environ.get("CLIMATE_RAG_MEMORY_ID"):
-        try:
-            save_turn(actor_id, session_id, "assistant", result_text)
-        except Exception as _mem_err:
-            print(f"  Warning: Error storing turn: {_mem_err}")
+        with timed_span("climate_rag.memory.save_assistant_turn"):
+            try:
+                save_turn(actor_id, session_id, "assistant", result_text)
+            except Exception as _mem_err:
+                print(f"  Warning: Error storing turn: {_mem_err}")
+
+    # Compute total E2E time
+    _e2e_ms = round((_time.perf_counter() - _request_start) * 1000, 1)
+
+    # Collect OTel spans for metadata
+    trace_data = get_request_trace(session_id)
 
     # Store metadata for retrieval after streaming completes
     handle_request_streaming._last_metadata = {
@@ -361,6 +376,10 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
         "session_id": session_id,
         "charts": new_charts,
         "tools_called": tools_called,
+        "latency": {
+            "e2e_ms": _e2e_ms,
+            "trace_spans": trace_data,
+        },
     }
 
 
