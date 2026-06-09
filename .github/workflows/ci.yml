@@ -2,7 +2,7 @@ name: CI — Build, Lint, Test, Security
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, cdk-and-docs-update]
   pull_request:
     branches: [main]
 
