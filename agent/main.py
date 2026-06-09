@@ -13,10 +13,13 @@ from tools.rag_tool import search_climate_data
 
 # Optional: Memory tools (require bedrock-agentcore SDK)
 _memory_available = False
+_reconstruction_available = False
 try:
     from tools.memory_tool import get_recent_turns, recall_research_context, save_turn
+    from tools.history_reconstruction import reconstruct_history
 
     _memory_available = True
+    _reconstruction_available = True
 except ImportError:
     pass
 
@@ -249,12 +252,16 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
     if hasattr(agent, "messages") and len(agent.messages) > MAX_HISTORY_MESSAGES:
         agent.messages = agent.messages[-MAX_HISTORY_MESSAGES:]
 
-    # Sanitize history: if the last message(s) contain orphaned tool_use
-    # blocks (from a prior crashed request), remove them. Bedrock requires
-    # every tool_use to have a corresponding tool_result.
-    # Strategy: if the last message is an assistant message with tool_use,
-    # and there's no following user message with tool_result, drop those
-    # trailing messages. This preserves valid multi-turn history.
+    # Reconstruct history from Memory if available and in-process history is empty/corrupt
+    if _reconstruction_available and hasattr(agent, "messages"):
+        if not agent.messages:
+            # No in-process history — reconstruct from Memory
+            reconstructed = reconstruct_history(actor_id, session_id)
+            if reconstructed:
+                agent.messages = reconstructed
+                print(f"  ℹ️  Reconstructed {len(reconstructed)} messages from Memory")
+
+    # Sanitize: remove orphaned tool_use messages
     if hasattr(agent, "messages") and agent.messages:
         _sanitize_tool_history(agent)
 
@@ -281,8 +288,12 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
             except Exception as e:
                 # If orphaned tool_use error, clear history and retry once
                 if "Expected toolResult" in str(e) or "toolResult blocks" in str(e):
-                    print("  ⚠️  Orphaned tool_use detected — clearing history and retrying...")
+                    print("  ⚠️  Orphaned tool_use detected — reconstructing from Memory...")
                     agent.messages = []
+                    # Try to reconstruct clean history from Memory
+                    if _reconstruction_available:
+                        reconstructed = reconstruct_history(actor_id, session_id)
+                        agent.messages = reconstructed
                     full_text.clear()
                     try:
                         async for event in agent.stream_async(prompt):
