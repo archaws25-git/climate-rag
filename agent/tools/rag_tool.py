@@ -26,9 +26,13 @@ BEDROCK_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 # Confidence thresholds — calibrated to RRF scores (range 0 to ~0.1 typically)
 # These are applied to the original FAISS cosine similarity scores
-CONFIDENCE_HIGH = 0.75
-CONFIDENCE_MEDIUM = 0.55
-CONFIDENCE_LOW = 0.40
+# Calibrated against actual Titan Embeddings v2 score distribution for this corpus:
+#   0.45+ = strong semantic match (top result for a targeted query)
+#   0.35+ = partial match (related topic, different specifics)
+#   0.25+ = weak match (tangentially related)
+CONFIDENCE_HIGH = 0.45
+CONFIDENCE_MEDIUM = 0.35
+CONFIDENCE_LOW = 0.25
 
 # Hybrid search weighting: how much to favor vector vs keyword results
 # Higher alpha = more weight on vector (semantic), lower = more on BM25 (keyword)
@@ -240,15 +244,16 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
 
 
 @tool
-def search_climate_data(query: str, top_k: int = 5) -> str:
+def search_climate_data(query: str, top_k: int = 10) -> str:
     """Search the climate data vector store for relevant information.
 
     Uses hybrid search (vector + BM25 keyword) with Reciprocal Rank Fusion
     to combine semantic similarity with exact keyword matching.
 
     Args:
-        query: Natural language query about climate data.
-        top_k: Number of results to return (default 5).
+        query: Natural language query about climate data. Pass the user's
+               original question verbatim — do NOT rephrase or split.
+        top_k: Number of results to return (default 10).
 
     Returns:
         JSON with retrieval results including:
@@ -287,11 +292,16 @@ def _multi_entity_search(query: str, top_k: int) -> str:
         query, re.IGNORECASE
     )
     compare_match = re.search(
-        r'compare\s+(?:climate\s+)?(?:between\s+)?(.+?)\s+(?:and|to|with)\s+(.+?)(?:\s+since|\s+over|\s+from|\s*$)',
+        r'compare\s+(.+?)\s+(?:and|to|with)\s+(.+?)(?:\s+since|\s+over|\s+from|\s*$)',
+        query, re.IGNORECASE
+    )
+    # Fallback: "X and Y temperature/trends/data"
+    and_match = re.search(
+        r'(.+?)\s+and\s+(.+?)(?:\s+temperature|\s+trends|\s+data|\s+climate)',
         query, re.IGNORECASE
     )
 
-    match = between_match or vs_match or compare_match
+    match = between_match or vs_match or compare_match or and_match
     if not match:
         # Couldn't parse entities — fall back to hybrid search
         results = _hybrid_search(query, top_k)
@@ -301,7 +311,8 @@ def _multi_entity_search(query: str, top_k: int) -> str:
     entity_b = match.group(2).strip()
 
     # Hybrid search for each entity separately
-    per_entity_k = max(5, top_k)
+    # Use higher k for comparisons so we get multiple decades per entity
+    per_entity_k = max(10, top_k)
     results_a = _hybrid_search(f"{entity_a} temperature climate data", per_entity_k)
     results_b = _hybrid_search(f"{entity_b} temperature climate data", per_entity_k)
 
@@ -314,9 +325,11 @@ def _multi_entity_search(query: str, top_k: int) -> str:
             seen_texts.add(text_key)
             merged.append(r)
 
-    # Sort by RRF score descending and limit to top_k
+    # Sort by RRF score descending and limit
+    # For comparisons, allow more results to cover multiple decades per entity
+    max_results = max(top_k, 14)  # At least 7 decades per entity
     merged.sort(key=lambda x: x.get("rrf_score", x["score"]), reverse=True)
-    merged = merged[:top_k]
+    merged = merged[:max_results]
 
     return _format_response(merged)
 
@@ -382,15 +395,17 @@ def _build_citation(metadata: dict) -> str:
 def _confidence_note(level: str) -> str:
     """Return guidance for the agent based on confidence level."""
     notes = {
-        "HIGH": "Data is highly relevant. Present findings with confidence and cite sources.",
+        "HIGH": (
+            "Data IS present in the knowledge base with high relevance. "
+            "Present these findings directly. Do NOT claim data is missing."
+        ),
         "MEDIUM": (
-            "Data is moderately relevant. Present findings but note that coverage "
-            "may be partial. Consider supplementing with live API data."
+            "Data IS present but coverage may be partial. "
+            "Present these findings with a note about partial coverage."
         ),
         "LOW": (
             "Data relevance is low. Present with explicit uncertainty caveats. "
-            "Strongly recommend trying live API tools for more relevant data. "
-            "State: 'Based on limited available data...' in your response."
+            "Consider trying live API tools for better data."
         ),
     }
     return notes.get(level, "")

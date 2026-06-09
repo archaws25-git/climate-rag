@@ -276,27 +276,27 @@ class TestConfidenceScoring:
     """Tests for the confidence threshold logic."""
 
     def test_score_to_confidence_high(self):
-        """Score >= 0.75 should be HIGH."""
+        """Score >= 0.45 should be HIGH."""
         from agent.tools.rag_tool import _score_to_confidence
-        assert _score_to_confidence(0.80) == "HIGH"
-        assert _score_to_confidence(0.75) == "HIGH"
+        assert _score_to_confidence(0.50) == "HIGH"
+        assert _score_to_confidence(0.45) == "HIGH"
 
     def test_score_to_confidence_medium(self):
-        """Score >= 0.55 and < 0.75 should be MEDIUM."""
+        """Score >= 0.35 and < 0.45 should be MEDIUM."""
         from agent.tools.rag_tool import _score_to_confidence
-        assert _score_to_confidence(0.60) == "MEDIUM"
-        assert _score_to_confidence(0.55) == "MEDIUM"
+        assert _score_to_confidence(0.40) == "MEDIUM"
+        assert _score_to_confidence(0.35) == "MEDIUM"
 
     def test_score_to_confidence_low(self):
-        """Score >= 0.40 and < 0.55 should be LOW."""
+        """Score >= 0.25 and < 0.35 should be LOW."""
         from agent.tools.rag_tool import _score_to_confidence
-        assert _score_to_confidence(0.45) == "LOW"
-        assert _score_to_confidence(0.40) == "LOW"
+        assert _score_to_confidence(0.30) == "LOW"
+        assert _score_to_confidence(0.25) == "LOW"
 
     def test_score_to_confidence_insufficient(self):
-        """Score < 0.40 should be INSUFFICIENT."""
+        """Score < 0.25 should be INSUFFICIENT."""
         from agent.tools.rag_tool import _score_to_confidence
-        assert _score_to_confidence(0.39) == "INSUFFICIENT"
+        assert _score_to_confidence(0.24) == "INSUFFICIENT"
         assert _score_to_confidence(0.10) == "INSUFFICIENT"
         assert _score_to_confidence(0.0) == "INSUFFICIENT"
 

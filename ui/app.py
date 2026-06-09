@@ -88,7 +88,7 @@ with st.sidebar:
         "- *How has temperature changed in the Southeast in the last 50 years?*\n"
         "- *Compare temperature trends between New York Central Park and Los Angeles Intl from the 1950s to 2020s*\n"
         "- *Plot global temperature anomalies*\n"
-        "- *Warmest decades on record globally*"
+        "- *Which are the warmest decades on record globally*"
     )
     st.divider()
 
@@ -114,10 +114,10 @@ with st.sidebar:
 
 @st.cache_resource
 def load_handler():
-    """Load the agent request handler."""
-    from main import handle_request
+    """Load the agent request handlers (standard + streaming)."""
+    from main import handle_request, handle_request_streaming
 
-    return handle_request
+    return handle_request, handle_request_streaming
 
 
 # Render chat history
@@ -135,43 +135,45 @@ if prompt := st.chat_input("Ask about climate trends..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing climate data..."):
-            try:
-                handle_request = load_handler()
-                result = handle_request(prompt, st.session_state.session_id)
+        try:
+            handle_request, handle_request_streaming = load_handler()
 
-                text = result["response"]
-                charts = result.get("charts", [])
-                guardrail_action = result.get("guardrail_action", "NONE")
-                tools_called = result.get("tools_called", [])
+            # Stream response token-by-token
+            stream_gen = handle_request_streaming(
+                prompt, st.session_state.session_id
+            )
+            text = st.write_stream(stream_gen)
 
-                # Show guardrail block notice if triggered
-                if guardrail_action in ("INPUT_BLOCKED", "OUTPUT_BLOCKED"):
-                    st.warning(f"🛡️ Guardrail action: {guardrail_action}")
+            # Retrieve metadata (charts, tools) after streaming completes
+            from main import handle_request_streaming as _hrs
+            metadata = _hrs._last_metadata
+            charts = metadata.get("charts", [])
+            tools_called = metadata.get("tools_called", [])
 
-                # Show response
-                st.markdown(text)
+            # Show charts inline
+            for chart_path in charts:
+                if os.path.exists(chart_path):
+                    st.image(chart_path, use_container_width=True)
 
-                # Show charts inline
-                for chart_path in charts:
-                    if os.path.exists(chart_path):
-                        st.image(chart_path, use_container_width=True)
+            # Show metadata expander
+            with st.expander("📋 Response metadata", expanded=False):
+                if tools_called:
+                    st.caption(f"**Tools used:** {', '.join(set(tools_called))}")
+                st.caption(f"**Session:** {st.session_state.session_id[:8]}...")
+                st.caption("**Streaming:** ✅ Token-by-token via ConverseStream")
 
-                # Show metadata expander with confidence and tools used
-                with st.expander("📋 Response metadata", expanded=False):
-                    if tools_called:
-                        st.caption(f"**Tools used:** {', '.join(set(tools_called))}")
-                    if guardrail_action != "NONE":
-                        st.caption(f"**Guardrail:** {guardrail_action}")
-                    st.caption(f"**Session:** {st.session_state.session_id[:8]}...")
-
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": text,
-                    "charts": charts,
-                })
-            except Exception as e:
-                st.error(f"Error: {e}")
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": f"Error: {e}", "charts": []}
-                )
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": text if isinstance(text, str) else str(text),
+                "charts": charts,
+            })
+        except Exception as e:
+            import traceback
+            full_tb = traceback.format_exc()
+            print(f"FULL TRACEBACK:\n{full_tb}")
+            st.error(f"Error: {e}")
+            with st.expander("Full traceback", expanded=True):
+                st.code(full_tb)
+            st.session_state.messages.append(
+                {"role": "assistant", "content": f"Error: {e}", "charts": []}
+            )
