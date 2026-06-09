@@ -48,10 +48,13 @@ def _sanitize_tool_history(agent_instance):
     """Remove orphaned tool_use messages that lack matching tool_result.
 
     Bedrock ConverseStream requires every tool_use block to have a
-    corresponding tool_result in the next user message. If a prior
-    request crashed mid-tool-call, the history is malformed.
-    This clears the entire history if orphaned tool calls are detected
-    (safest approach — avoids complex message surgery).
+    corresponding tool_result in a subsequent user message.
+
+    Strategy:
+    1. Find all tool_use IDs and tool_result IDs across the full history.
+    2. If any orphans exist, trim messages from the end until the history
+       is clean (preserves the oldest valid multi-turn exchanges).
+    3. If trimming can't fix it, clear everything.
     """
     messages = agent_instance.messages
     if not messages:
@@ -72,11 +75,37 @@ def _sanitize_tool_history(agent_instance):
                 if "toolResult" in block:
                     tool_result_ids.add(block["toolResult"].get("toolUseId", ""))
 
-    # If there are orphaned tool_use calls, clear history
     orphaned = tool_use_ids - tool_result_ids
-    if orphaned:
-        print(f"  ⚠️  Clearing agent history: {len(orphaned)} orphaned tool call(s) detected")
+    if not orphaned:
+        return
+
+    # Trim from the end: remove messages until no orphans remain
+    while messages:
+        # Re-check orphans
+        tool_use_ids = set()
+        tool_result_ids = set()
+        for msg in messages:
+            content = msg.get("content", [])
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if isinstance(block, dict):
+                    if "toolUse" in block:
+                        tool_use_ids.add(block["toolUse"].get("toolUseId", ""))
+                    if "toolResult" in block:
+                        tool_result_ids.add(block["toolResult"].get("toolUseId", ""))
+
+        if not (tool_use_ids - tool_result_ids):
+            break  # History is now clean
+        messages.pop()  # Remove last message
+
+    # If we emptied everything or still have orphans, just clear
+    if not messages or (tool_use_ids - tool_result_ids):
         agent_instance.messages = []
+    else:
+        agent_instance.messages = messages
+
+    print(f"  ⚠️  Sanitized agent history: trimmed to {len(agent_instance.messages)} messages")
 
 
 def handle_request(prompt: str, session_id: str = None, actor_id: str = "default"):
@@ -215,10 +244,17 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
     os.makedirs(chart_dir, exist_ok=True)
     before = set(_glob.glob(os.path.join(chart_dir, "*.png")))
 
-    # Sanitize history
+    # Trim history to prevent context overflow, then sanitize orphaned tool calls
     MAX_HISTORY_MESSAGES = 20
     if hasattr(agent, "messages") and len(agent.messages) > MAX_HISTORY_MESSAGES:
         agent.messages = agent.messages[-MAX_HISTORY_MESSAGES:]
+
+    # Sanitize history: if the last message(s) contain orphaned tool_use
+    # blocks (from a prior crashed request), remove them. Bedrock requires
+    # every tool_use to have a corresponding tool_result.
+    # Strategy: if the last message is an assistant message with tool_use,
+    # and there's no following user message with tool_result, drop those
+    # trailing messages. This preserves valid multi-turn history.
     if hasattr(agent, "messages") and agent.messages:
         _sanitize_tool_history(agent)
 
@@ -243,7 +279,22 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
                             full_text.append(chunk)
                             text_queue.put(chunk)
             except Exception as e:
-                error_holder[0] = e
+                # If orphaned tool_use error, clear history and retry once
+                if "Expected toolResult" in str(e) or "toolResult blocks" in str(e):
+                    print("  ⚠️  Orphaned tool_use detected — clearing history and retrying...")
+                    agent.messages = []
+                    full_text.clear()
+                    try:
+                        async for event in agent.stream_async(prompt):
+                            if isinstance(event, dict) and "data" in event:
+                                chunk = event["data"]
+                                if chunk:
+                                    full_text.append(chunk)
+                                    text_queue.put(chunk)
+                    except Exception as retry_err:
+                        error_holder[0] = retry_err
+                else:
+                    error_holder[0] = e
             finally:
                 done_event.set()
 
