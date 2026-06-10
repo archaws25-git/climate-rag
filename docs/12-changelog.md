@@ -1,5 +1,13 @@
 # ClimateRAG — Changelog
 
+## 2026-06-10 — Gateway Teardown Reliability
+
+### Infrastructure
+- **Gateway teardown wait loop**: `_teardown_gateway` now polls (up to 60s) for targets to be fully removed before deleting the gateway, preventing ConflictException errors
+- **Idempotent target deletion**: Handles `ResourceNotFoundException` gracefully when targets are already deleted
+
+---
+
 ## 2026-06-06 — Retrieval Quality & Evaluation Improvements
 
 ### Retrieval Architecture

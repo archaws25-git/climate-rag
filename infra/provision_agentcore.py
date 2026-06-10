@@ -679,7 +679,13 @@ def teardown(args):
 
 
 def _teardown_gateway(client, override_id=None):
-    """Find and delete the ClimateDataGateway and its targets."""
+    """Find and delete the ClimateDataGateway and its targets.
+
+    Deletes all gateway targets first, then polls (up to 60s) until
+    the targets are fully removed before deleting the gateway itself.
+    This prevents ConflictException errors caused by deleting a gateway
+    while its targets are still in a DELETING state.
+    """
     section(f"Deleting Gateway: {GATEWAY_NAME}")
 
     gwid = override_id or _find_gateway_paginated(client, GATEWAY_NAME)
@@ -703,9 +709,29 @@ def _teardown_gateway(client, override_id=None):
                     gatewayIdentifier=gwid,
                     targetId=target_id,
                 )
-                log(f"  Deleted: {target_name}")
+                log(f"  Delete initiated: {target_name}")
             except ClientError as e:
-                log(f"  Warning: Could not delete target {target_name}: {e}")
+                if "ResourceNotFoundException" in str(e):
+                    log(f"  Already deleted: {target_name}")
+                else:
+                    log(f"  Warning: Could not delete target {target_name}: {e}")
+
+        # Wait for all targets to be fully removed before deleting the gateway
+        if targets:
+            import time as _time
+            log("Waiting for targets to be fully removed...")
+            max_wait = 60  # seconds
+            start = _time.time()
+            while _time.time() - start < max_wait:
+                resp = client.list_gateway_targets(gatewayIdentifier=gwid)
+                remaining = resp.get("items", resp.get("gatewayTargetSummaries", []))
+                if not remaining:
+                    log("  All targets removed.")
+                    break
+                log(f"  {len(remaining)} target(s) still deleting...")
+                _time.sleep(5)
+            else:
+                log(f"  Warning: Timed out waiting for target deletion after {max_wait}s")
     except ClientError as e:
         log(f"Warning: Could not list targets: {e}")
 

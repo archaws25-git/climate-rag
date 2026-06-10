@@ -159,16 +159,44 @@ Opens at **http://localhost:8501**. The sidebar shows config status (✅/❌) fo
 
 ## Step 9: Verify with Evaluations
 
+The consolidated eval runner supports multiple suites from a single entry point:
+
 ```powershell
-# 9a. Retrieval quality (fast, no LLM generation)
-python eval/run_retrieval_eval.py
+# Run ALL suites (retrieval + e2e + multiturn + latency)
+python eval/run.py
 
-# 9b. Full end-to-end with LLM-as-Judge (~15-20 min)
-python eval/run_eval.py
+# Individual suites
+python eval/run.py --suite retrieval      # Retrieval quality (fast, ~30s, no LLM)
+python eval/run.py --suite e2e            # End-to-end LLM-as-Judge (~5 min)
+python eval/run.py --suite multiturn      # Multi-turn conversation flows (~8 min)
+python eval/run.py --suite latency        # Performance P50/P95/P99 (~2 min)
 
-# 9c. Multi-turn conversation eval (~10 min)
-python eval/run_multiturn_eval.py
+# Multiple suites
+python eval/run.py --suite retrieval latency
+
+# Specific queries/flows
+python eval/run.py --suite e2e --id e2e_01 e2e_03
+python eval/run.py --suite multiturn --id mt_01
+
+# Adjust retrieval top-K
+python eval/run.py --suite retrieval --top-k 10
 ```
+
+Results are saved to `eval/results/eval_{timestamp}.json` as a unified report containing all suite results, summaries, and pass/fail status.
+
+**Eval Architecture:**
+| File | Purpose |
+|---|---|
+| `eval/run.py` | Unified entry point (replaces legacy scripts) |
+| `eval/golden_dataset.py` | All test data — retrieval ground truth, E2E benchmarks, multi-turn flows |
+| `eval/judge.py` | Shared LLM-as-Judge (single-turn + multi-turn scoring) |
+| `eval/metrics.py` | All metric computations (IR + generation + latency percentiles) |
+
+**Metrics measured:**
+- **Retrieval:** Recall@K, Precision@K, MRR, NDCG@K (thresholds: 90%)
+- **E2E:** Correctness, relevance, tool_use, citation, confidence, source_attribution (composite ≥ 90%)
+- **Multi-turn:** Context resolution, session coherence, progressive quality (threshold: 4.0/5)
+- **Latency:** E2E P50/P95/P99, per-query timing
 
 ---
 
@@ -178,13 +206,28 @@ python eval/run_multiturn_eval.py
 # Unit tests (no AWS needed, instant)
 python -m pytest tests/unit -v
 
-# Integration tests (requires AWS credentials)
+# Specific test suites
+python -m pytest tests/unit/test_rag_tool.py -v        # Hybrid search (BM25 + Vector + RRF)
+python -m pytest tests/unit/test_history_reconstruction.py -v  # Memory reconstruction
+
+# Integration tests (requires AWS credentials + AgentCore Memory)
+$env:CLIMATE_RAG_MEMORY_ID = "YOUR_MEMORY_ID"
 python -m pytest tests/integration -m integration -v
 
-# Load/failover tests (failover: mocked, throughput: requires AWS)
+# Load/failover tests (requires AWS)
 python -m pytest tests/load/test_failover.py -v
 python -m pytest tests/load/test_throughput.py -v -s --timeout=300
 ```
+
+**Test coverage:**
+| Suite | Tests | What it validates |
+|---|---|---|
+| `tests/unit/test_rag_tool.py` | 23 | Hybrid search, BM25, RRF fusion, confidence scoring |
+| `tests/unit/test_history_reconstruction.py` | 17 | Memory reconstruction, EventMessage handling, validation |
+| `tests/integration/test_history_reconstruction_integration.py` | 5 | 5-turn persistence + recall via live AgentCore Memory |
+| `tests/integration/test_memory_integration.py` | 3 | Memory save/recall + semantic search |
+| `tests/load/test_throughput.py` | 6 | QPS benchmarks (RAG, embedding, full agent) |
+| `tests/load/test_failover.py` | 5 | LLM timeout, throttling, model unavailable handling |
 
 ---
 
@@ -220,7 +263,8 @@ aws sts get-caller-identity
 # THEN: rebuild
 python ingest/cleanup.py          # Clears local + S3 stale data
 python ingest/ingest_all.py       # Rebuilds everything (watch for ✅ on S3 upload)
-python eval/run_retrieval_eval.py # Verify retrieval quality
+python eval/run.py --suite retrieval  # Verify retrieval quality
+python eval/run.py --suite latency    # Check performance regression
 streamlit run ui/app.py           # Restart UI
 ```
 
@@ -241,6 +285,7 @@ streamlit run ui/app.py           # Restart UI
 | S3 403 Forbidden | `$env:AWS_PROFILE` not set in terminal — set it |
 | S3 404 Not Found (vector store unavailable) | S3 index missing — run `python ingest/ingest_all.py` |
 | `AccessDenied` on PutObject | Expired token — `aws sso login --profile YOUR_AWS_PROFILE` then retry |
+| Gateway teardown ConflictException | Targets still deleting — script now auto-waits up to 60s; if it times out, re-run `--teardown` |
 
 ---
 
@@ -251,41 +296,44 @@ climate-rag/
 ├── .env                      ← Your local config (never committed)
 ├── config.py                 ← Centralized config loader (loads .env + SSM)
 ├── agent/
-│   ├── main.py               ← Agent entry point (handle_request)
+│   ├── main.py               ← Agent entry point (handle_request + streaming)
+│   ├── tracing.py            ← OpenTelemetry tracing with in-memory span collector
+│   ├── latency_tracker.py    ← Per-request latency tracking for UI
 │   ├── tools/
-│   │   ├── rag_tool.py       ← Hybrid search (FAISS + BM25 + re-ranker)
-│   │   ├── bm25_search.py    ← BM25 keyword search
-│   │   ├── reranker.py       ← Cross-encoder re-ranker
-│   │   ├── query_planner.py  ← LLM query decomposition
-│   │   ├── cost_tracker.py   ← Token/cost tracking
-│   │   ├── chart_tool.py     ← Code Interpreter charts
-│   │   ├── guardrails.py     ← Input/output guardrails
-│   │   └── memory_tool.py    ← AgentCore Memory
+│   │   ├── rag_tool.py       ← Hybrid search (FAISS + BM25 + RRF fusion)
+│   │   ├── chart_tool.py     ← Code Interpreter charts (with sandbox guards)
+│   │   ├── memory_tool.py    ← AgentCore Memory (save/recall turns)
+│   │   └── history_reconstruction.py ← Rebuild Bedrock messages from Memory
 │   └── prompts/
 │       └── system_prompt.txt  ← Agent persona + rules
 ├── ingest/
 │   ├── cleanup.py            ← Delete old data (local + S3)
 │   ├── ingest_all.py         ← Full pipeline (single command)
-│   ├── ingest_ghcn.py        ← 37 US stations
+│   ├── ingest_ghcn.py        ← 37 US stations (with city aliases for BM25)
 │   ├── ingest_gistemp.py     ← Global anomalies
 │   ├── ingest_power.py       ← NASA POWER (6 regions)
 │   ├── embeddings.py         ← Titan v2 embedding generation
-│   ├── build_index.py        ← FAISS IndexFlatIP builder
-│   └── index_versioning.py   ← S3 versioned uploads + rollback
+│   └── build_index.py        ← FAISS IndexFlatIP builder
 ├── eval/
-│   ├── run_retrieval_eval.py ← Retrieval metrics (Recall/Precision/MRR/NDCG)
-│   ├── run_eval.py           ← LLM-as-Judge (6 dimensions)
-│   └── run_multiturn_eval.py ← Multi-turn conversation flows
+│   ├── run.py                ← Unified eval runner (all suites)
+│   ├── golden_dataset.py     ← All test data (retrieval + E2E + multiturn)
+│   ├── judge.py              ← Shared LLM-as-Judge module
+│   ├── metrics.py            ← IR + generation + latency metrics
+│   ├── run_eval.py           ← (legacy) Single-turn E2E
+│   ├── run_retrieval_eval.py ← (legacy) Retrieval only
+│   └── run_multiturn_eval.py ← (legacy) Multi-turn flows
 ├── ui/
-│   └── app.py                ← Streamlit chat interface
+│   └── app.py                ← Streamlit chat (streaming + latency expander)
 ├── cdk/                      ← CDK stacks (Data + Compute + AgentCore)
 ├── infra/
-│   ├── provision_agentcore.py ← Direct AgentCore provisioning
-│   ├── setup_guardrails.py    ← Bedrock Guardrails setup
-│   └── cleanup.py             ← See ingest/cleanup.py
+│   ├── provision_agentcore.py ← Direct provisioning (--teardown supported)
+│   └── setup_guardrails.py    ← Bedrock Guardrails setup
 ├── tests/
-│   ├── unit/                 ← 169 unit tests (mocked, offline)
-│   ├── integration/          ← AWS connectivity + Memory + new components
-│   └── load/                 ← Throughput + failover tests
+│   ├── unit/                 ← Unit tests (mocked, offline)
+│   ├── integration/          ← AWS connectivity + Memory reconstruction
+│   └── load/                 ← Throughput + failover benchmarks
+├── .github/workflows/
+│   ├── ci.yml                ← Lint + type-check + security + unit tests
+│   └── load-tests.yml        ← Manual-dispatch load tests (requires AWS)
 └── docs/                     ← Architecture, testing, changelog docs
 ```

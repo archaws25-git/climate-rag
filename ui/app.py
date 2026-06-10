@@ -144,6 +144,10 @@ if prompt := st.chat_input("Ask about climate trends..."):
             tracker = LatencyTracker(request_id=st.session_state.session_id)
             tracker.start("e2e")
 
+            # Show progress while waiting for first token
+            status_placeholder = st.empty()
+            status_placeholder.caption("🔍 Searching climate data...")
+
             # Stream response token-by-token
             stream_gen = handle_request_streaming(
                 prompt, st.session_state.session_id
@@ -151,14 +155,20 @@ if prompt := st.chat_input("Ask about climate trends..."):
 
             # Wrap the generator to capture TTFT and token count
             tracker.record_stream_start()
+            _first = [False]  # Mutable container for closure
 
             def _tracked_stream():
                 for chunk in stream_gen:
+                    if not _first[0]:
+                        _first[0] = True
+                        status_placeholder.empty()
                     tracker.record_first_token()
                     tracker.increment_tokens()
                     yield chunk
 
             text = st.write_stream(_tracked_stream())
+            if not _first[0]:
+                status_placeholder.empty()
             tracker.stop("e2e")
             tracker.finalize()
 

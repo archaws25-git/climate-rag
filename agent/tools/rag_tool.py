@@ -1,9 +1,10 @@
 """RAG tool — Hybrid search (FAISS vector + BM25 keyword) with RRF fusion.
 
 Implements a production-grade hybrid retrieval pipeline:
-  1. FAISS vector search (semantic similarity via Titan Embeddings v2)
-  2. BM25 keyword search (exact term matching via rank_bm25)
-  3. Reciprocal Rank Fusion (RRF) to merge and re-rank results
+  1. Metadata pre-filtering (temporal + geographic hard filters)
+  2. FAISS vector search (semantic similarity via Titan Embeddings v2)
+  3. BM25 keyword search (exact term matching via rank_bm25)
+  4. Reciprocal Rank Fusion (RRF) to merge and re-rank results
 
 This ensures queries like "NYC", "LA", or abbreviations match via keyword
 even when embeddings don't capture the alias relationship.
@@ -19,6 +20,8 @@ import faiss
 import numpy as np
 from rank_bm25 import BM25Okapi
 from strands import tool
+
+from tools.metadata_filter import apply_metadata_filters
 
 S3_BUCKET = os.environ.get("CLIMATE_RAG_BUCKET", "climate-rag-index")
 INDEX_PREFIX = "index/"
@@ -145,27 +148,41 @@ def _score_to_confidence(score: float) -> str:
     return "INSUFFICIENT"
 
 
-def _vector_search(query: str, top_k: int) -> list[tuple[int, float]]:
-    """FAISS vector search. Returns list of (doc_index, score) pairs."""
+def _vector_search(query: str, top_k: int, valid_indices: list = None) -> list[tuple[int, float]]:
+    """FAISS vector search. Returns list of (doc_index, score) pairs.
+
+    If valid_indices is provided, only those indices are considered (metadata pre-filter).
+    """
     from tracing import timed_span
 
     with timed_span("climate_rag.search.embed_query", {"model": "titan-embed-v2"}):
         embedding = _embed_query(query)
         faiss.normalize_L2(embedding)
 
-    with timed_span("climate_rag.search.faiss", {"top_k": top_k, "index_size": _index.ntotal}):
-        scores, indices = _index.search(embedding, top_k)
+    # If filtering, over-fetch then filter; otherwise standard search
+    fetch_k = top_k if valid_indices is None else min(top_k * 3, _index.ntotal)
+
+    with timed_span("climate_rag.search.faiss", {"top_k": fetch_k, "index_size": _index.ntotal}):
+        scores, indices = _index.search(embedding, fetch_k)
 
     results = []
+    valid_set = set(valid_indices) if valid_indices is not None else None
     for i, idx in enumerate(indices[0]):
         if idx == -1:
             continue
+        if valid_set is not None and int(idx) not in valid_set:
+            continue
         results.append((int(idx), float(scores[0][i])))
+        if len(results) >= top_k:
+            break
     return results
 
 
-def _bm25_search(query: str, top_k: int) -> list[tuple[int, float]]:
-    """BM25 keyword search. Returns list of (doc_index, score) pairs."""
+def _bm25_search(query: str, top_k: int, valid_indices: list = None) -> list[tuple[int, float]]:
+    """BM25 keyword search. Returns list of (doc_index, score) pairs.
+
+    If valid_indices is provided, only those indices are considered.
+    """
     from tracing import timed_span
 
     if _bm25_index is None:
@@ -177,6 +194,15 @@ def _bm25_search(query: str, top_k: int) -> list[tuple[int, float]]:
 
     with timed_span("climate_rag.search.bm25", {"query_tokens": len(query_tokens), "top_k": top_k}):
         scores = _bm25_index.get_scores(query_tokens)
+
+        if valid_indices is not None:
+            # Zero out scores for filtered-out indices
+            mask = np.zeros_like(scores)
+            for idx in valid_indices:
+                if idx < len(mask):
+                    mask[idx] = 1.0
+            scores = scores * mask
+
         top_indices = np.argsort(scores)[::-1][:top_k]
 
     results = []
@@ -190,13 +216,15 @@ def _bm25_search(query: str, top_k: int) -> list[tuple[int, float]]:
 def _hybrid_search(query: str, top_k: int) -> list[dict]:
     """Hybrid search combining FAISS vector + BM25 keyword via RRF.
 
-    Reciprocal Rank Fusion (RRF) formula:
-        rrf_score(doc) = sum( 1 / (k + rank_i(doc)) ) for each retriever i    We weight the retrievers:
-        final_score = VECTOR_WEIGHT * rrf_vector + BM25_WEIGHT * rrf_bm25
+    Applies metadata pre-filters (temporal + geographic) before search
+    to reduce the candidate set and improve both speed and relevance.
     """
-    # Run both search backends
-    vector_results = _vector_search(query, top_k * 2)  # Over-fetch for better fusion
-    bm25_results = _bm25_search(query, top_k * 2)
+    # Apply metadata pre-filters
+    valid_indices = apply_metadata_filters(_metadata, query)
+
+    # Run both search backends with filtered indices
+    vector_results = _vector_search(query, top_k * 2, valid_indices)
+    bm25_results = _bm25_search(query, top_k * 2, valid_indices)
 
     # Build RRF scores
     rrf_scores = {}  # doc_index -> weighted RRF score
@@ -249,21 +277,14 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
 
 @tool
 def search_climate_data(query: str, top_k: int = 10) -> str:
-    """Search the climate data vector store for relevant information.
-
-    Uses hybrid search (vector + BM25 keyword) with Reciprocal Rank Fusion
-    to combine semantic similarity with exact keyword matching.
+    """Search climate data using hybrid vector + keyword search with metadata filtering.
 
     Args:
-        query: Natural language query about climate data. Pass the user's
-               original question verbatim — do NOT rephrase or split.
-        top_k: Number of results to return (default 10).
+        query: Natural language climate data query. Pass verbatim, do not rephrase.
+        top_k: Max results (default 10, reduced to 5 for non-comparison queries).
 
     Returns:
-        JSON with retrieval results including:
-        - confidence_level: HIGH/MEDIUM/LOW/INSUFFICIENT for each result
-        - citation: formatted source attribution string
-        - retrieval_metadata: overall confidence assessment and search method
+        JSON with results, confidence levels, and citations.
     """
     _load_index()
 
@@ -275,7 +296,9 @@ def search_climate_data(query: str, top_k: int = 10) -> str:
     if comparison_pattern.search(query):
         return _multi_entity_search(query, top_k)
 
-    results = _hybrid_search(query, top_k)
+    # For non-comparison queries, use lower top_k to reduce context sent to LLM
+    effective_k = min(top_k, 5)
+    results = _hybrid_search(query, effective_k)
     return _format_response(results)
 
 
@@ -330,8 +353,8 @@ def _multi_entity_search(query: str, top_k: int) -> str:
             merged.append(r)
 
     # Sort by RRF score descending and limit
-    # For comparisons, allow more results to cover multiple decades per entity
-    max_results = max(top_k, 14)  # At least 7 decades per entity
+    # For comparisons, cap at 10 (5 per entity) to reduce LLM context
+    max_results = min(max(top_k, 10), 10)
     merged.sort(key=lambda x: x.get("rrf_score", x["score"]), reverse=True)
     merged = merged[:max_results]
 
@@ -339,7 +362,7 @@ def _multi_entity_search(query: str, top_k: int) -> str:
 
 
 def _format_response(results: list) -> str:
-    """Format results list into the standard JSON response."""
+    """Format results into JSON response for the LLM."""
     if not results:
         overall_confidence = "INSUFFICIENT"
     else:
@@ -351,12 +374,10 @@ def _format_response(results: list) -> str:
             "retrieval_metadata": {
                 "overall_confidence": "INSUFFICIENT",
                 "top_score": results[0]["score"] if results else 0.0,
-                "search_method": "hybrid (vector + BM25 + RRF)",
+                "search_method": "hybrid (vector + BM25 + RRF + metadata filter)",
                 "message": (
-                    "I could not find sufficiently relevant data in the vector store "
-                    "for this query. Confidence is below the minimum threshold. "
-                    "Consider: (1) trying the live NASA POWER or NOAA NCEI API tools, "
-                    "(2) rephrasing your question, or (3) acknowledging the data gap."
+                    "Insufficient data found. "
+                    "Try live NASA POWER or NOAA NCEI API tools, or rephrase."
                 ),
             },
             "results": results,
@@ -367,7 +388,7 @@ def _format_response(results: list) -> str:
             "overall_confidence": overall_confidence,
             "top_score": results[0]["score"] if results else 0.0,
             "num_results": len(results),
-            "search_method": "hybrid (vector + BM25 + RRF)",
+            "search_method": "hybrid (vector + BM25 + RRF + metadata filter)",
             "confidence_note": _confidence_note(overall_confidence),
         },
         "results": results,

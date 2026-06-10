@@ -33,16 +33,25 @@ python generate_logs.py
 ## Running Tests
 
 ```bash
-.venv\Scripts\python.exe -m pytest                    # Full suite with coverage
-.venv\Scripts\python.exe -m pytest unit            # Unit tests only
-.venv\Scripts\python.exe -m pytest integration     # Integration tests only
-.venv\Scripts\python.exe -m pytest -v                 # Verbose output
+.venv\Scripts\python.exe -m pytest tests/unit -v         # Unit tests only
+.venv\Scripts\python.exe -m pytest tests/integration -m integration -v  # Integration tests
+.venv\Scripts\python.exe -m pytest -v                    # Full suite with coverage
+```
+
+## Evaluations
+
+```bash
+python eval/run.py                        # All suites (retrieval + e2e + multiturn + latency)
+python eval/run.py --suite retrieval      # Fast retrieval quality check (~30s)
+python eval/run.py --suite e2e            # LLM-as-Judge scoring (~5min)
+python eval/run.py --suite multiturn      # Conversation coherence (~8min)
+python eval/run.py --suite latency        # Performance P50/P95/P99 (~2min)
 ```
 
 ## Linting
 
 ```bash
-flake8 app/ tests/ generate_logs.py
+ruff check agent/ ui/ ingest/ --select E,F,W
 ```
 
 ## Database Reset

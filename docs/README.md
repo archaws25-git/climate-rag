@@ -89,8 +89,14 @@ agentcore invoke '{"prompt": "How has temperature changed in the US Southeast?"}
 # From repo root
 streamlit run ui/app.py
 
-# Evaluate answer quality
-python eval/run_eval.py
+# Evaluate answer quality (all suites)
+python eval/run.py
+
+# Individual suites
+python eval/run.py --suite retrieval      # Retrieval quality (~30s)
+python eval/run.py --suite e2e            # LLM-as-Judge (~5 min)
+python eval/run.py --suite multiturn      # Multi-turn flows (~8 min)
+python eval/run.py --suite latency        # Performance P50/P95/P99 (~2 min)
 ```
 
 ---

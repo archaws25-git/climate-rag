@@ -259,13 +259,17 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
         agent.messages = agent.messages[-MAX_HISTORY_MESSAGES:]
 
     # Reconstruct history from Memory if available and in-process history is empty/corrupt
+    # Skip on first turn (no prior messages in Streamlit session) to save latency
     if _reconstruction_available and hasattr(agent, "messages"):
-        if not agent.messages:
+        if not agent.messages and os.environ.get("_CLIMATE_RAG_HAS_PRIOR_TURN"):
             with timed_span("climate_rag.history.reconstruct"):
                 reconstructed = reconstruct_history(actor_id, session_id)
                 if reconstructed:
                     agent.messages = reconstructed
                     print(f"  ℹ️  Reconstructed {len(reconstructed)} messages from Memory")
+
+    # Mark that we've had at least one turn (for next request)
+    os.environ["_CLIMATE_RAG_HAS_PRIOR_TURN"] = "1"
 
     # Sanitize: remove orphaned tool_use messages
     if hasattr(agent, "messages") and agent.messages:
