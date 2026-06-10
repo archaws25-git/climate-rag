@@ -82,14 +82,14 @@ class TestEmbedChunks:
         # Mock Bedrock client
         fake_embedding = [0.5] * 1024
 
-        with patch("boto3.client") as mock_boto:
+        with patch("boto3.Session") as mock_session_cls:
             mock_client = MagicMock()
             mock_body = MagicMock()
             mock_body.read.return_value = json.dumps(
                 {"embedding": fake_embedding}
             ).encode()
             mock_client.invoke_model.return_value = {"body": mock_body}
-            mock_boto.return_value = mock_client
+            mock_session_cls.return_value.client.return_value = mock_client
 
             result = embed_chunks(input_path, output_path)
 
@@ -117,14 +117,14 @@ class TestEmbedChunks:
             for c in chunks:
                 f.write(json.dumps(c) + "\n")
 
-        with patch("boto3.client") as mock_boto:
+        with patch("boto3.Session") as mock_session_cls:
             mock_client = MagicMock()
             mock_body = MagicMock()
             mock_body.read.return_value = json.dumps(
                 {"embedding": [0.1] * 1024}
             ).encode()
             mock_client.invoke_model.return_value = {"body": mock_body}
-            mock_boto.return_value = mock_client
+            mock_session_cls.return_value.client.return_value = mock_client
 
             result = embed_chunks(input_path, output_path)
 

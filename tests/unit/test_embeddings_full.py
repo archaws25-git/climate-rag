@@ -33,14 +33,14 @@ class TestEmbeddingsMain:
         embedded_dir = tmp_path / "embedded"
         embedded_dir.mkdir()
 
-        with patch("boto3.client") as mock_boto:
+        with patch("boto3.Session") as mock_session_cls:
             mock_client = MagicMock()
             mock_body = MagicMock()
             mock_body.read.return_value = json.dumps(
                 {"embedding": [0.1] * 1024}
             ).encode()
             mock_client.invoke_model.return_value = {"body": mock_body}
-            mock_boto.return_value = mock_client
+            mock_session_cls.return_value.client.return_value = mock_client
 
             mod.main()
 
@@ -66,14 +66,14 @@ class TestEmbeddingsMain:
         embedded_dir = tmp_path / "embedded"
         embedded_dir.mkdir()
 
-        with patch("boto3.client") as mock_boto:
+        with patch("boto3.Session") as mock_session_cls:
             mock_client = MagicMock()
             mock_body = MagicMock()
             mock_body.read.return_value = json.dumps(
                 {"embedding": [0.2] * 1024}
             ).encode()
             mock_client.invoke_model.return_value = {"body": mock_body}
-            mock_boto.return_value = mock_client
+            mock_session_cls.return_value.client.return_value = mock_client
 
             # Should not raise even though gistemp_chunks.jsonl and power_chunks.jsonl are missing
             mod.main()
