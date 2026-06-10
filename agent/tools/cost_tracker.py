@@ -13,8 +13,7 @@ Pricing (us-east-1, as of 2026-06):
 """
 
 import threading
-from dataclasses import dataclass, field
-
+from dataclasses import dataclass
 
 # Pricing per million tokens (USD)
 PRICING = {

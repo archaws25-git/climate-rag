@@ -8,9 +8,8 @@ import csv
 import io
 import json
 import os
-import urllib.request
-
 import tempfile
+import urllib.request
 
 OUTPUT_DIR = os.environ.get("CHUNK_OUTPUT_DIR", os.path.join(tempfile.gettempdir(), "climate-rag-chunks"))
 

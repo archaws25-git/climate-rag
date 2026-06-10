@@ -15,8 +15,8 @@ from tools.rag_tool import search_climate_data
 _memory_available = False
 _reconstruction_available = False
 try:
-    from tools.memory_tool import get_recent_turns, recall_research_context, save_turn
     from tools.history_reconstruction import reconstruct_history
+    from tools.memory_tool import get_recent_turns, recall_research_context, save_turn
 
     _memory_available = True
     _reconstruction_available = True
@@ -28,7 +28,7 @@ MODEL_ID = os.environ.get("CLIMATE_RAG_MODEL", "us.anthropic.claude-sonnet-4-6")
 
 SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "system_prompt.txt").read_text()
 
-from botocore.config import Config as BotocoreConfig
+from botocore.config import Config as BotocoreConfig  # noqa: E402
 
 model = BedrockModel(
     model_id=MODEL_ID,
@@ -228,10 +228,11 @@ def handle_request_streaming(prompt: str, session_id: str = None, actor_id: str 
     Yields:
         str: Text chunks as they stream from the model.
     """
-    from tracing import tracer, start_request_trace, get_request_trace, timed_span
     import asyncio
     import glob as _glob
     import time as _time
+
+    from tracing import get_request_trace, start_request_trace, timed_span
 
     session_id = session_id or str(uuid.uuid4())
     start_request_trace(session_id)

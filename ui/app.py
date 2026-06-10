@@ -11,9 +11,8 @@ import uuid
 
 # Load centralized config (.env + SSM + profile detection)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-import config  # noqa: E402, F401
-
 import boto3
+import config  # noqa: E402, F401
 import streamlit as st
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "agent"))

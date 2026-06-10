@@ -28,13 +28,13 @@ from contextlib import contextmanager
 from typing import Optional
 
 from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
     SimpleSpanProcessor,
 )
-from opentelemetry.sdk.resources import Resource
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 EXPORTER_TYPE = os.environ.get("OTEL_EXPORTER", "none")

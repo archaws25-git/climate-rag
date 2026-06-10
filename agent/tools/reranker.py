@@ -5,7 +5,6 @@ a more expensive but accurate cross-encoder scoring approach.
 Uses Bedrock's Converse API to score query-document relevance.
 """
 
-import json
 import logging
 import os
 

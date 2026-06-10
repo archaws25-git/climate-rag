@@ -22,7 +22,7 @@ from collections import OrderedDict
 from typing import Optional
 
 try:
-    from tracing import tracer, timed_span, start_request_trace, get_request_trace
+    from tracing import start_request_trace  # noqa: F401
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
@@ -177,7 +177,6 @@ class LatencyTracker:
         if len(history) < 2:
             return None
 
-        import statistics
 
         e2e_values = sorted(h["e2e_ms"] for h in history if h["e2e_ms"] > 0)
         ttft_values = sorted(h["ttft_ms"] for h in history if h["ttft_ms"] > 0)
