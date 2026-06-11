@@ -245,6 +245,19 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
             vector_raw_scores[doc_idx] = 0.3  # Below CONFIDENCE_LOW threshold
 
     # Sort by RRF score and take top_k
+    # Apply source preference: boost GHCN station data for station/city queries
+    # This prevents NASA POWER gridded data from outranking station-level data
+    from tools.metadata_filter import extract_geo_filter
+    geo = extract_geo_filter(query)
+    is_station_query = geo is not None and geo.get("type") == "radius"
+
+    if is_station_query:
+        for doc_idx in rrf_scores:
+            meta = _metadata[doc_idx]
+            dataset = meta.get("metadata", {}).get("dataset", "")
+            if dataset == "GHCN_v4":
+                rrf_scores[doc_idx] *= 1.5  # 50% boost for station data
+
     ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
 
     # Build result dicts

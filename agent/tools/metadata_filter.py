@@ -171,9 +171,12 @@ def extract_geo_filter(query: str) -> Optional[dict]:
     query_lower = query.lower()
 
     # Check for city mentions (longest match first to avoid partial matches)
+    # Use word boundary check to prevent substring matches (e.g., "la" in "alaska")
     sorted_cities = sorted(CITY_COORDINATES.keys(), key=len, reverse=True)
     for city_name in sorted_cities:
-        if city_name in query_lower:
+        # Word boundary check: city must be preceded/followed by non-alpha or string edge
+        pattern = r'(?<![a-z])' + re.escape(city_name) + r'(?![a-z])'
+        if re.search(pattern, query_lower):
             lat, lon = CITY_COORDINATES[city_name]
             return {"type": "radius", "lat": lat, "lon": lon, "city": city_name}
 

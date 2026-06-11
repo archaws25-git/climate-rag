@@ -126,7 +126,7 @@ jobs:
             --cov=cdk/custom_resources \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
-            --cov-fail-under=70
+            --cov-fail-under=78
 
       - name: Upload coverage report
         if: always()
