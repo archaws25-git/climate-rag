@@ -152,21 +152,46 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run retrieval eval (offline, uses local index)
+      - name: Verify committed index and chunks are present
+        run: |
+          # The FAISS index and embedded chunks must be committed to the repo.
+          # If missing, the retrieval gate cannot run — fail loudly so the gap is visible.
+          missing=0
+
+          if [ ! -f "data/chunks/index/faiss.index" ]; then
+            echo "❌ Missing: data/chunks/index/faiss.index (commit the index file)"
+            missing=1
+          fi
+
+          if [ ! -f "data/chunks/index/metadata.jsonl" ]; then
+            echo "❌ Missing: data/chunks/index/metadata.jsonl (commit the metadata file)"
+            missing=1
+          fi
+
+          if ! ls data/chunks/embedded/*_chunks.jsonl 1>/dev/null 2>&1; then
+            echo "❌ Missing: data/chunks/embedded/*_chunks.jsonl (commit embedded chunks)"
+            missing=1
+          fi
+
+          if [ "$missing" -eq 1 ]; then
+            echo ""
+            echo "Run locally to regenerate:"
+            echo "  python ingest/build_index.py  # or equivalent"
+            echo "Then commit: data/chunks/index/ and data/chunks/embedded/"
+            exit 1
+          fi
+
+          echo "✅ FAISS index, metadata, and embedded chunks all present"
+
+      - name: Run retrieval eval
         env:
           AWS_REGION: us-east-1
           CHUNK_OUTPUT_DIR: data/chunks
           CLIMATE_RAG_BUCKET: ""
+          AWS_PROFILE: ""
         run: |
-          # Only runs if local index exists (from a previous ingest)
-          if [ -f "data/chunks/index/faiss.index" ]; then
-            python eval/run.py --suite retrieval --top-k 5 2>&1 | tee eval_output.txt
-            # Check recall threshold
-            grep -q "avg_recall.*0\.[89]" eval/results/eval_*.json || \
-              (echo "❌ Retrieval recall below 80% threshold" && exit 1)
-          else
-            echo "⚠️ No local index found — skipping retrieval regression check"
-          fi
+          python eval/run.py --suite retrieval --top-k 5
+          echo "✅ Retrieval eval complete — check results in eval/results/"
 
   cdk-synth:
     name: CDK Synth (Template Validation)

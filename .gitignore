@@ -49,6 +49,8 @@ terraform/climate_rag_plan
 # ── Data & Build Artifacts ───────────────────────────────────────
 *.faiss
 *.index
+# Allow the committed FAISS retrieval index used by CI regression gate
+!data/chunks/index/faiss.index
 /tmp/
 dist/
 build/
