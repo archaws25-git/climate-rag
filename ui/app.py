@@ -211,6 +211,14 @@ if prompt := st.chat_input("Ask about climate trends..."):
                     if span_rows:
                         st.dataframe(span_rows, use_container_width=True)
 
+                # Cost estimate (based on token count)
+                token_count = tracker._token_count
+                if token_count > 0:
+                    # Rough cost: ~1500 input tokens per search + output tokens
+                    est_input = 1500  # System prompt + tool defs + retrieval
+                    est_cost = (est_input / 1_000_000) * 3.0 + (token_count / 1_000_000) * 15.0
+                    st.caption(f"**Est. cost:** ${est_cost:.4f} ({est_input} input + {token_count} output tokens)")
+
             st.session_state.messages.append(
                 {
                     "role": "assistant",

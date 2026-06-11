@@ -4,143 +4,65 @@ Production-grade RAG pipeline for historical climate trend analysis, built on Am
 
 ## Quick Start
 
-Deployment is divided into four sequential phases. Each phase uses a different
-tool — run them in order.
-
-### Phase 1 — Infrastructure (CDK)
-
-> Provisions S3, IAM, Lambda, and all AgentCore resources.
-> Run once on first deploy; re-run only when AWS resources change.
+See `DEPLOYMENT.md` in the project root for complete step-by-step deployment instructions.
 
 ```bash
-# Install CDK CLI (one-time)
-npm install -g aws-cdk
-
-# Note: You WILL need to set-up your AWS credentials (your AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN for the current session first )
-# Bootstrap CDK for your account/region (one-time)
-cdk bootstrap aws://$(aws sts get-caller-identity --query Account --output text)/us-east-1
-
-# Set up CDK Python environment
-
-python3 -m venv .venv && source .venv/bin/activate
+# TL;DR (after AWS credentials are configured):
 pip install -r requirements.txt
-
-# Deploy all three stacks (~12 min on first run)
-cd cdk/
-# Change the stage name to prod once it is ready for production
-cdk deploy --all -c stage=dev
+python infra/provision_agentcore.py    # AgentCore resources (~15 min)
+python ingest/ingest_all.py            # Data pipeline (~5 min)
+streamlit run ui/app.py                # Launch UI
 ```
 
-### Phase 2 — Data Ingestion
+## Architecture
 
-> Builds the FAISS vector index from NOAA/NASA data and uploads it to S3.
-> Run once; re-run only when source climate data changes.
-
-```bash
-cd ..   # back to repo root
-
-# Source config from CDK outputs + SSM (no manual copy-paste)
-export CLIMATE_RAG_BUCKET=$(aws cloudformation describe-stacks \
-  --stack-name ClimateRagDataStack \
-  --query "Stacks[0].Outputs[?OutputKey=='IndexBucketName'].OutputValue" \
-  --output text)
-export CLIMATE_RAG_MEMORY_ID=$(aws ssm get-parameter \
-  --name /climate-rag/memory-id --query Parameter.Value --output text)
-export CLIMATE_RAG_CODE_INTERPRETER_ID=$(aws ssm get-parameter \
-  --name /climate-rag/code-interpreter-id --query Parameter.Value --output text)
-export AWS_REGION=us-east-1
-
-# Set up agent Python environment
-python3 -m venv .venv-agent && source .venv-agent/bin/activate
-pip install -r agent/requirements.txt
-
-# Run ingestion pipeline
-python ingest/ingest_ghcn.py
-python ingest/ingest_gistemp.py
-python ingest/ingest_power.py
-python ingest/embeddings.py
-python ingest/build_index.py
+```
+User Query → Streamlit (streaming)
+    → Strands Agent (Claude Sonnet 4)
+        → Hybrid Search (FAISS + BM25 + RRF + metadata filtering)
+        → AgentCore Code Interpreter (charts)
+        → AgentCore Memory (multi-session)
+    → Token-by-token streaming response
 ```
 
-### Phase 3 — Agent Deploy
+## Key Features
 
-> Deploys the Strands agent to AgentCore Runtime.
-> Re-run whenever agent code or prompts change.
-
-```bash
-cd agent/
-
-# Test locally first
-agentcore dev
-# In a second terminal: agentcore invoke --dev '{"prompt": "Global temperature trend?"}'
-
-# Deploy to AgentCore Runtime
-agentcore launch
-
-# Verify
-agentcore invoke '{"prompt": "How has temperature changed in the US Southeast?"}'
-```
-
-### Phase 4 — UI
-
-> Re-run on every session or after agent changes.
-
-```bash
-# From repo root
-streamlit run ui/app.py
-
-# Evaluate answer quality (all suites)
-python eval/run.py
-
-# Individual suites
-python eval/run.py --suite retrieval      # Retrieval quality (~30s)
-python eval/run.py --suite e2e            # LLM-as-Judge (~5 min)
-python eval/run.py --suite multiturn      # Multi-turn flows (~8 min)
-python eval/run.py --suite latency        # Performance P50/P95/P99 (~2 min)
-```
-
----
-
-## When to Re-run Each Phase
-
-| Change made | Phase 1 (CDK) | Phase 2 (Ingest) | Phase 3 (agentcore) | Phase 4 (UI) |
-|---|:---:|:---:|:---:|:---:|
-| First-time setup | ✅ | ✅ | ✅ | ✅ |
-| Agent code / prompts changed | — | — | ✅ | ✅ |
-| Lambda proxy handler changed | ✅ ComputeStack only | — | — | — |
-| AgentCore config changed | ✅ AgentCoreStack only | — | — | — |
-| Monthly NOAA/NASA data refresh | — | ✅ | — | ✅ |
-| S3 bucket config changed | ✅ DataStack only | — | — | — |
-
----
-
-## AgentCore Services Used
-
-| Service | Purpose |
-|---|---|
-| Runtime | Serverless agent hosting (microVM) |
-| Memory | Multi-session researcher context |
-| Gateway | NASA POWER + NOAA NCEI as MCP tools |
-| Identity | Workload identity + IAM auth |
-| Code Interpreter | Chart generation (matplotlib/plotly) |
-| Observability | OTEL traces → CloudWatch |
-| Evaluations | Answer quality assessment |
-| Policy | Cedar policies on Gateway |
-
-## Datasets
-
-- NOAA GHCN v4 — US station monthly temperatures (1950–present)
-- NASA GISTEMP v4 — Global surface temperature anomalies (1880–present)
-- NASA POWER — Solar, temperature, precipitation (1981–present)
-
-## Infrastructure
-
-| Approach | Location | Status |
-|---|---|---|
-| CDK (Python) | `cdk/` | ✅ Active |
-| Terraform | `terraform/` | ⚠️ Deprecated — replaced by CDK |
-| Manual setup scripts | `infra/` | ⚠️ Reference only — superseded by CDK |
+- **Hybrid search**: FAISS vector + BM25 keyword + Reciprocal Rank Fusion
+- **Metadata pre-filtering**: Temporal (decade range) + geographic (50-mile radius or region)
+- **3 climate datasets**: NOAA GHCN v4 (37 stations, temp + precip), NASA GISTEMP v4 (global anomalies), NASA POWER (solar radiation)
+- **Token streaming**: Real-time response via Bedrock ConverseStream
+- **Memory persistence**: Multi-turn conversations survive restarts via AgentCore Memory
+- **Evaluation framework**: 4-suite eval (retrieval, E2E, multi-turn, latency)
+- **Observability**: OpenTelemetry tracing + latency tracker with P50/P95/P99
+- **Embedding cache**: LRU cache for repeated queries (saves ~500ms per cache hit)
+- **Optional re-ranker**: Cross-encoder for precision improvement (opt-in via env var)
 
 ## Documentation
 
-See [docs/README.md](docs/README.md) for full architecture and operations documentation.
+| Doc | Contents |
+|---|---|
+| `DEPLOYMENT.md` (root) | Step-by-step deployment guide |
+| `01-requirements.md` | Functional/non-functional requirements |
+| `02-architecture-design.md` | System architecture and component design |
+| `03-architecture-decision-records.md` | ADRs (why FAISS, why RRF, why BM25, etc.) |
+| `04-data-flow-integration.md` | Data pipeline and integration flows |
+| `05-cost-analysis.md` | AWS cost breakdown and projections |
+| `06-security-compliance.md` | Security posture and compliance |
+| `07-observability-evaluation.md` | OTel tracing, latency metrics, eval suites |
+| `10-dataset-reference.md` | Dataset schemas, stations, parameters |
+| `11-cdk-infrastructure-guide.md` | CDK stack architecture |
+| `11-testing.md` | Testing strategy (243 tests, 78% coverage) |
+| `12-changelog.md` | Version history and change log |
+| `presentation.md` | Marp-compatible slide deck for portfolio demos |
+
+## Running Tests
+
+```bash
+python -m pytest tests/unit -v              # Unit tests (no AWS)
+python eval/run.py --suite retrieval        # Retrieval quality (30s)
+python eval/run.py                          # All eval suites
+```
+
+## Tech Stack
+
+Python 3.13 | AWS Bedrock (Claude Sonnet + Titan Embeddings) | AgentCore (Memory, Code Interpreter, Gateway) | FAISS | BM25 | Streamlit | CDK | OpenTelemetry

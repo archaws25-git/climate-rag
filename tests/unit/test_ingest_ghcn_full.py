@@ -52,9 +52,7 @@ class TestMain:
 
         # Mock the download to return simple CSV
         fake_csv = (
-            "STATION,DATE,TAVG,TMAX,TMIN\n"
-            "USW00013874,1990-01-01,5.2,10.1,0.3\n"
-            "USW00013874,1990-02-01,7.8,12.5,3.1\n"
+            "STATION,DATE,TAVG,TMAX,TMIN\nUSW00013874,1990-01-01,5.2,10.1,0.3\nUSW00013874,1990-02-01,7.8,12.5,3.1\n"
         )
         with patch("ingest.ingest_ghcn.download_ghcn", return_value=fake_csv):
             main()
@@ -77,10 +75,7 @@ class TestMain:
         output_dir = str(tmp_path / "new_dir")
         monkeypatch.setattr("ingest.ingest_ghcn.OUTPUT_DIR", output_dir)
 
-        fake_csv = (
-            "STATION,DATE,TAVG,TMAX,TMIN\n"
-            "USW00013874,2000-05-01,20.0,25.0,15.0\n"
-        )
+        fake_csv = "STATION,DATE,TAVG,TMAX,TMIN\nUSW00013874,2000-05-01,20.0,25.0,15.0\n"
         with patch("ingest.ingest_ghcn.download_ghcn", return_value=fake_csv):
             main()
 

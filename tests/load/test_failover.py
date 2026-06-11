@@ -46,6 +46,7 @@ class TestVectorDBFailover:
         """Should raise clear error when S3 is unreachable."""
         import importlib
         import agent.tools.rag_tool as rag_module
+
         importlib.reload(rag_module)
         rag_module._index = None
         rag_module._metadata = None
@@ -56,9 +57,7 @@ class TestVectorDBFailover:
         monkeypatch.setenv("CLIMATE_RAG_BUCKET", "test-bucket")
 
         mock_s3 = MagicMock()
-        mock_s3.download_file.side_effect = EndpointConnectionError(
-            endpoint_url="https://s3.us-east-1.amazonaws.com"
-        )
+        mock_s3.download_file.side_effect = EndpointConnectionError(endpoint_url="https://s3.us-east-1.amazonaws.com")
 
         with patch("boto3.Session") as mock_session_cls:
             mock_session_cls.return_value.client.return_value = mock_s3
@@ -73,6 +72,7 @@ class TestVectorDBFailover:
         """Should raise clear error when bucket doesn't exist."""
         import importlib
         import agent.tools.rag_tool as rag_module
+
         importlib.reload(rag_module)
         rag_module._index = None
         rag_module._metadata = None
@@ -82,9 +82,7 @@ class TestVectorDBFailover:
         monkeypatch.setenv("CLIMATE_RAG_BUCKET", "test-bucket")
 
         mock_s3 = MagicMock()
-        mock_s3.download_file.side_effect = _make_client_error(
-            "NoSuchBucket", "The specified bucket does not exist"
-        )
+        mock_s3.download_file.side_effect = _make_client_error("NoSuchBucket", "The specified bucket does not exist")
 
         with patch("boto3.Session") as mock_session_cls:
             mock_session_cls.return_value.client.return_value = mock_s3
@@ -98,6 +96,7 @@ class TestVectorDBFailover:
         """Should raise error when faiss.index doesn't exist in bucket."""
         import importlib
         import agent.tools.rag_tool as rag_module
+
         importlib.reload(rag_module)
         rag_module._index = None
         rag_module._metadata = None
@@ -107,9 +106,7 @@ class TestVectorDBFailover:
         monkeypatch.setenv("CLIMATE_RAG_BUCKET", "test-bucket")
 
         mock_s3 = MagicMock()
-        mock_s3.download_file.side_effect = _make_client_error(
-            "404", "Not Found"
-        )
+        mock_s3.download_file.side_effect = _make_client_error("404", "Not Found")
 
         with patch("boto3.Session") as mock_session_cls:
             mock_session_cls.return_value.client.return_value = mock_s3
@@ -127,25 +124,20 @@ class TestEmbeddingModelFailover:
         import faiss
         import numpy as np
         import agent.tools.rag_tool as rag_module
+
         importlib.reload(rag_module)
 
         # Pre-load a real index so S3 succeeds
-        embeddings = np.array(
-            [c["embedding"] for c in sample_chunks], dtype="float32"
-        )
+        embeddings = np.array([c["embedding"] for c in sample_chunks], dtype="float32")
         faiss.normalize_L2(embeddings)
         index = faiss.IndexFlatIP(1024)
         index.add(embeddings)
         rag_module._index = index
-        rag_module._metadata = [
-            {"text": c["text"], "metadata": c["metadata"]} for c in sample_chunks
-        ]
+        rag_module._metadata = [{"text": c["text"], "metadata": c["metadata"]} for c in sample_chunks]
 
         # Mock embedding call to fail with throttling
         mock_bedrock = MagicMock()
-        mock_bedrock.invoke_model.side_effect = _make_client_error(
-            "ThrottlingException", "Rate exceeded"
-        )
+        mock_bedrock.invoke_model.side_effect = _make_client_error("ThrottlingException", "Rate exceeded")
 
         with patch("boto3.Session") as mock_session_cls:
             mock_session_cls.return_value.client.return_value = mock_bedrock
@@ -161,23 +153,18 @@ class TestEmbeddingModelFailover:
         import faiss
         import numpy as np
         import agent.tools.rag_tool as rag_module
+
         importlib.reload(rag_module)
 
-        embeddings = np.array(
-            [c["embedding"] for c in sample_chunks], dtype="float32"
-        )
+        embeddings = np.array([c["embedding"] for c in sample_chunks], dtype="float32")
         faiss.normalize_L2(embeddings)
         index = faiss.IndexFlatIP(1024)
         index.add(embeddings)
         rag_module._index = index
-        rag_module._metadata = [
-            {"text": c["text"], "metadata": c["metadata"]} for c in sample_chunks
-        ]
+        rag_module._metadata = [{"text": c["text"], "metadata": c["metadata"]} for c in sample_chunks]
 
         mock_bedrock = MagicMock()
-        mock_bedrock.invoke_model.side_effect = _make_client_error(
-            "ModelNotReadyException", "Model is not available"
-        )
+        mock_bedrock.invoke_model.side_effect = _make_client_error("ModelNotReadyException", "Model is not available")
 
         with patch("boto3.Session") as mock_session_cls:
             mock_session_cls.return_value.client.return_value = mock_bedrock
@@ -204,6 +191,7 @@ class TestGuardrailFailover:
         with patch("boto3.client", return_value=mock_client):
             import importlib
             import tools.guardrails as mod
+
             importlib.reload(mod)
             mod._guardrail_id = "test-id"
             mod._guardrail_version = "1"
@@ -227,6 +215,7 @@ class TestGuardrailFailover:
         with patch("boto3.client", return_value=mock_client):
             import importlib
             import tools.guardrails as mod
+
             importlib.reload(mod)
             mod._guardrail_id = "test-id"
             mod._guardrail_version = "1"
@@ -243,13 +232,12 @@ class TestGuardrailFailover:
         monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_VERSION", "1")
 
         mock_client = MagicMock()
-        mock_client.apply_guardrail.side_effect = _make_client_error(
-            "ThrottlingException", "Rate exceeded"
-        )
+        mock_client.apply_guardrail.side_effect = _make_client_error("ThrottlingException", "Rate exceeded")
 
         with patch("boto3.client", return_value=mock_client):
             import importlib
             import tools.guardrails as mod
+
             importlib.reload(mod)
             mod._guardrail_id = "test-id"
             mod._guardrail_version = "1"
@@ -273,13 +261,12 @@ class TestLLMFailover:
 
         import importlib
         import agent.main as main_module
+
         importlib.reload(main_module)
 
         # Patch the agent object directly on the reloaded module
         mock_agent = MagicMock()
-        mock_agent.side_effect = _make_client_error(
-            "ModelTimeoutException", "Model invocation timed out"
-        )
+        mock_agent.side_effect = _make_client_error("ModelTimeoutException", "Model invocation timed out")
         main_module.agent = mock_agent
 
         with pytest.raises(ClientError) as exc_info:
@@ -294,12 +281,11 @@ class TestLLMFailover:
 
         import importlib
         import agent.main as main_module
+
         importlib.reload(main_module)
 
         mock_agent = MagicMock()
-        mock_agent.side_effect = _make_client_error(
-            "ThrottlingException", "Too many requests"
-        )
+        mock_agent.side_effect = _make_client_error("ThrottlingException", "Too many requests")
         main_module.agent = mock_agent
 
         with pytest.raises(ClientError) as exc_info:
@@ -314,12 +300,11 @@ class TestLLMFailover:
 
         import importlib
         import agent.main as main_module
+
         importlib.reload(main_module)
 
         mock_agent = MagicMock()
-        mock_agent.side_effect = _make_client_error(
-            "AccessDeniedException", "Model access not enabled"
-        )
+        mock_agent.side_effect = _make_client_error("AccessDeniedException", "Model access not enabled")
         main_module.agent = mock_agent
 
         with pytest.raises(ClientError) as exc_info:

@@ -199,9 +199,7 @@ class TestReconstructHistory:
         """Should return empty list when Memory SDK throws."""
         monkeypatch.setenv("CLIMATE_RAG_MEMORY_ID", "test-memory-id")
 
-        with patch(
-            "tools.history_reconstruction.MemorySessionManager"
-        ) as mock_mgr:
+        with patch("tools.history_reconstruction.MemorySessionManager") as mock_mgr:
             mock_mgr.side_effect = RuntimeError("Connection failed")
             from tools.history_reconstruction import reconstruct_history
 

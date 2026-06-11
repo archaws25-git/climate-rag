@@ -18,10 +18,13 @@ class TestQueryPlanner:
     def test_single_entity_query(self):
         """Single-entity query should return one sub-query."""
         mock_response = {
-            "output": {"message": {"content": [{"text": json.dumps({
-                "is_multi_entity": False,
-                "sub_queries": ["Temperature in Alaska"]
-            })}]}}
+            "output": {
+                "message": {
+                    "content": [
+                        {"text": json.dumps({"is_multi_entity": False, "sub_queries": ["Temperature in Alaska"]})}
+                    ]
+                }
+            }
         }
 
         mock_client = MagicMock()
@@ -37,13 +40,23 @@ class TestQueryPlanner:
     def test_multi_entity_query(self):
         """Comparison query should be split into sub-queries."""
         mock_response = {
-            "output": {"message": {"content": [{"text": json.dumps({
-                "is_multi_entity": True,
-                "sub_queries": [
-                    "New York temperature climate data",
-                    "Los Angeles temperature climate data",
-                ]
-            })}]}}
+            "output": {
+                "message": {
+                    "content": [
+                        {
+                            "text": json.dumps(
+                                {
+                                    "is_multi_entity": True,
+                                    "sub_queries": [
+                                        "New York temperature climate data",
+                                        "Los Angeles temperature climate data",
+                                    ],
+                                }
+                            )
+                        }
+                    ]
+                }
+            }
         }
 
         mock_client = MagicMock()
@@ -70,9 +83,7 @@ class TestQueryPlanner:
 
     def test_invalid_json_fallback(self):
         """Should fallback when LLM returns invalid JSON."""
-        mock_response = {
-            "output": {"message": {"content": [{"text": "Not valid JSON at all"}]}}
-        }
+        mock_response = {"output": {"message": {"content": [{"text": "Not valid JSON at all"}]}}}
 
         mock_client = MagicMock()
         mock_client.converse.return_value = mock_response

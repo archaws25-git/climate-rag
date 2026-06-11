@@ -21,9 +21,7 @@ class TestGetEmbedding:
         fake_embedding = np.random.randn(1024).tolist()
         mock_client = MagicMock()
         mock_body = MagicMock()
-        mock_body.read.return_value = json.dumps(
-            {"embedding": fake_embedding}
-        ).encode()
+        mock_body.read.return_value = json.dumps({"embedding": fake_embedding}).encode()
         mock_client.invoke_model.return_value = {"body": mock_body}
 
         result = get_embedding(mock_client, "test query about climate")
@@ -35,9 +33,7 @@ class TestGetEmbedding:
         """Should call Titan Embeddings v2 model."""
         mock_client = MagicMock()
         mock_body = MagicMock()
-        mock_body.read.return_value = json.dumps(
-            {"embedding": [0.1] * 1024}
-        ).encode()
+        mock_body.read.return_value = json.dumps({"embedding": [0.1] * 1024}).encode()
         mock_client.invoke_model.return_value = {"body": mock_body}
 
         get_embedding(mock_client, "test text")
@@ -50,9 +46,7 @@ class TestGetEmbedding:
         """Should truncate input text to 8000 chars (Titan v2 limit)."""
         mock_client = MagicMock()
         mock_body = MagicMock()
-        mock_body.read.return_value = json.dumps(
-            {"embedding": [0.1] * 1024}
-        ).encode()
+        mock_body.read.return_value = json.dumps({"embedding": [0.1] * 1024}).encode()
         mock_client.invoke_model.return_value = {"body": mock_body}
 
         long_text = "x" * 10000
@@ -85,9 +79,7 @@ class TestEmbedChunks:
         with patch("boto3.Session") as mock_session_cls:
             mock_client = MagicMock()
             mock_body = MagicMock()
-            mock_body.read.return_value = json.dumps(
-                {"embedding": fake_embedding}
-            ).encode()
+            mock_body.read.return_value = json.dumps({"embedding": fake_embedding}).encode()
             mock_client.invoke_model.return_value = {"body": mock_body}
             mock_session_cls.return_value.client.return_value = mock_client
 
@@ -120,9 +112,7 @@ class TestEmbedChunks:
         with patch("boto3.Session") as mock_session_cls:
             mock_client = MagicMock()
             mock_body = MagicMock()
-            mock_body.read.return_value = json.dumps(
-                {"embedding": [0.1] * 1024}
-            ).encode()
+            mock_body.read.return_value = json.dumps({"embedding": [0.1] * 1024}).encode()
             mock_client.invoke_model.return_value = {"body": mock_body}
             mock_session_cls.return_value.client.return_value = mock_client
 

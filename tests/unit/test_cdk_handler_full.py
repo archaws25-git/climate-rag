@@ -58,9 +58,7 @@ class TestOnEventMemoryEdgeCases:
     def test_delete_memory_not_found(self, mock_client_fn):
         """Should handle ResourceNotFoundException gracefully on delete."""
         mock_client = MagicMock()
-        mock_client.delete_memory.side_effect = _make_client_error(
-            "ResourceNotFoundException"
-        )
+        mock_client.delete_memory.side_effect = _make_client_error("ResourceNotFoundException")
         mock_client_fn.return_value = mock_client
 
         event = {
@@ -103,9 +101,7 @@ class TestOnEventCodeInterpreterEdgeCases:
     def test_delete_not_found(self, mock_client_fn):
         """Should handle ResourceNotFoundException gracefully on delete."""
         mock_client = MagicMock()
-        mock_client.delete_code_interpreter.side_effect = _make_client_error(
-            "ResourceNotFoundException"
-        )
+        mock_client.delete_code_interpreter.side_effect = _make_client_error("ResourceNotFoundException")
         mock_client_fn.return_value = mock_client
 
         event = {
@@ -147,9 +143,7 @@ class TestOnEventGatewayEdgeCases:
         """Should handle ResourceNotFoundException gracefully on delete."""
         mock_client = MagicMock()
         mock_client.list_gateway_targets.return_value = {"gatewayTargetSummaries": []}
-        mock_client.delete_gateway.side_effect = _make_client_error(
-            "ResourceNotFoundException"
-        )
+        mock_client.delete_gateway.side_effect = _make_client_error("ResourceNotFoundException")
         mock_client_fn.return_value = mock_client
 
         event = {
@@ -169,9 +163,7 @@ class TestOnEventGatewayEdgeCases:
     def test_update_gateway(self, mock_client_fn):
         """Update should delete existing targets and create new ones."""
         mock_client = MagicMock()
-        mock_client.list_gateway_targets.return_value = {
-            "gatewayTargetSummaries": [{"targetId": "old-target-1"}]
-        }
+        mock_client.list_gateway_targets.return_value = {"gatewayTargetSummaries": [{"targetId": "old-target-1"}]}
         mock_client_fn.return_value = mock_client
 
         event = {

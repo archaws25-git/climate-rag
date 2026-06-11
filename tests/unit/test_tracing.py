@@ -57,6 +57,7 @@ class TestTimedSpan:
 
     def test_span_records_duration(self):
         import time
+
         start_request_trace("dur-test")
         with timed_span("slow_op") as span:
             time.sleep(0.01)

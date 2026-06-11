@@ -18,6 +18,7 @@ class TestSaveAndUpload:
         import importlib
 
         import ingest.build_index as mod
+
         importlib.reload(mod)
         mod.CHUNK_DIR = str(tmp_path)
 
@@ -48,6 +49,7 @@ class TestSaveAndUpload:
         import importlib
 
         import ingest.build_index as mod
+
         importlib.reload(mod)
         mod.CHUNK_DIR = str(tmp_path)
         mod.S3_BUCKET = "test-bucket"
@@ -70,6 +72,7 @@ class TestSaveAndUpload:
         import importlib
 
         import ingest.build_index as mod
+
         importlib.reload(mod)
         mod.CHUNK_DIR = str(tmp_path)
 
@@ -94,6 +97,7 @@ class TestMain:
         import importlib
 
         import ingest.build_index as mod
+
         importlib.reload(mod)
         mod.CHUNK_DIR = sample_chunks_dir
 

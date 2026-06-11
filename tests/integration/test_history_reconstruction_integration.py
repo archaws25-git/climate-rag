@@ -39,15 +39,27 @@ def session_context():
 # The 5-turn conversation to persist and reconstruct
 FIVE_TURN_CONVERSATION = [
     ("user", "What is the average temperature in Atlanta in the 2010s?"),
-    ("assistant", "According to GHCN v4 data, Atlanta Hartsfield (USW00013874) averaged approximately 17.3°C in the 2010s decade."),
+    (
+        "assistant",
+        "According to GHCN v4 data, Atlanta Hartsfield (USW00013874) averaged approximately 17.3°C in the 2010s decade.",
+    ),
     ("user", "How does that compare to the 1950s?"),
-    ("assistant", "In the 1950s, Atlanta averaged approximately 15.8°C, indicating a warming of about 1.5°C over 60 years."),
+    (
+        "assistant",
+        "In the 1950s, Atlanta averaged approximately 15.8°C, indicating a warming of about 1.5°C over 60 years.",
+    ),
     ("user", "What about precipitation trends in the Southeast?"),
-    ("assistant", "NASA POWER data shows Southeast precipitation averaging 3.4 mm/day with slight increases since the 1980s."),
+    (
+        "assistant",
+        "NASA POWER data shows Southeast precipitation averaging 3.4 mm/day with slight increases since the 1980s.",
+    ),
     ("user", "Can you make a chart comparing Atlanta temps across decades?"),
     ("assistant", "I've generated a chart showing Atlanta's decadal temperature progression from the 1950s to 2020s."),
     ("user", "What's the warmest decade globally according to GISTEMP?"),
-    ("assistant", "The 2020s is the warmest decade on record globally with an anomaly of +1.27°C above the 1951-1980 baseline."),
+    (
+        "assistant",
+        "The 2020s is the warmest decade on record globally with an anomaly of +1.27°C above the 1951-1980 baseline.",
+    ),
 ]
 
 
@@ -104,9 +116,7 @@ class TestHistoryReconstructionIntegration:
         # Validate alternation
         for i, msg in enumerate(messages):
             expected_role = "user" if i % 2 == 0 else "assistant"
-            assert msg["role"] == expected_role, (
-                f"Message {i} has role '{msg['role']}', expected '{expected_role}'"
-            )
+            assert msg["role"] == expected_role, f"Message {i} has role '{msg['role']}', expected '{expected_role}'"
 
         # Validate content structure
         for msg in messages:
@@ -139,9 +149,7 @@ class TestHistoryReconstructionIntegration:
         )
 
         # Check that key content from our conversation appears
-        all_text = " ".join(
-            msg["content"][0]["text"] for msg in messages
-        )
+        all_text = " ".join(msg["content"][0]["text"] for msg in messages)
         # At least some of our conversation content should be present
         assert "Atlanta" in all_text or "temperature" in all_text, (
             f"Expected conversation content in reconstruction, got: {all_text[:200]}"
@@ -177,9 +185,7 @@ class TestHistoryReconstructionIntegration:
         )
 
         # Other session should NOT contain session A's content
-        all_text = " ".join(
-            msg["content"][0]["text"] for msg in messages
-        ) if messages else ""
+        all_text = " ".join(msg["content"][0]["text"] for msg in messages) if messages else ""
         assert "XYZ123" not in all_text
 
     def test_reconstruction_survives_empty_session(self, session_context):

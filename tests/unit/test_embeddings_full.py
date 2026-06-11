@@ -17,6 +17,7 @@ class TestEmbeddingsMain:
         """main() should embed all *_chunks.jsonl files in CHUNK_DIR."""
         import importlib
         import ingest.embeddings as mod
+
         importlib.reload(mod)
 
         chunk_dir = str(tmp_path)
@@ -36,9 +37,7 @@ class TestEmbeddingsMain:
         with patch("boto3.Session") as mock_session_cls:
             mock_client = MagicMock()
             mock_body = MagicMock()
-            mock_body.read.return_value = json.dumps(
-                {"embedding": [0.1] * 1024}
-            ).encode()
+            mock_body.read.return_value = json.dumps({"embedding": [0.1] * 1024}).encode()
             mock_client.invoke_model.return_value = {"body": mock_body}
             mock_session_cls.return_value.client.return_value = mock_client
 
@@ -52,6 +51,7 @@ class TestEmbeddingsMain:
         """main() should skip chunk files that don't exist without error."""
         import importlib
         import ingest.embeddings as mod
+
         importlib.reload(mod)
 
         chunk_dir = str(tmp_path)
@@ -69,9 +69,7 @@ class TestEmbeddingsMain:
         with patch("boto3.Session") as mock_session_cls:
             mock_client = MagicMock()
             mock_body = MagicMock()
-            mock_body.read.return_value = json.dumps(
-                {"embedding": [0.2] * 1024}
-            ).encode()
+            mock_body.read.return_value = json.dumps({"embedding": [0.2] * 1024}).encode()
             mock_client.invoke_model.return_value = {"body": mock_body}
             mock_session_cls.return_value.client.return_value = mock_client
 

@@ -23,9 +23,9 @@ class TestReranker:
         # Mock LLM to give high score to climate doc, low to others
         mock_client = MagicMock()
         responses = [
-            {"output": {"message": {"content": [{"text": "2"}]}}},   # cooking = 2/10
-            {"output": {"message": {"content": [{"text": "9"}]}}},   # climate = 9/10
-            {"output": {"message": {"content": [{"text": "1"}]}}},   # irrelevant = 1/10
+            {"output": {"message": {"content": [{"text": "2"}]}}},  # cooking = 2/10
+            {"output": {"message": {"content": [{"text": "9"}]}}},  # climate = 9/10
+            {"output": {"message": {"content": [{"text": "1"}]}}},  # irrelevant = 1/10
         ]
         mock_client.converse.side_effect = responses
 
@@ -81,9 +81,7 @@ class TestReranker:
         ]
 
         mock_client = MagicMock()
-        mock_client.converse.return_value = {
-            "output": {"message": {"content": [{"text": "5"}]}}
-        }
+        mock_client.converse.return_value = {"output": {"message": {"content": [{"text": "5"}]}}}
 
         with patch("boto3.Session") as mock_session:
             mock_session.return_value.client.return_value = mock_client

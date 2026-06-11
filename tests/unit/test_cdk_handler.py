@@ -19,9 +19,7 @@ class TestOnEventMemory:
     def test_create_memory(self, mock_client_fn):
         """Should call create_memory and return the ID."""
         mock_client = MagicMock()
-        mock_client.create_memory.return_value = {
-            "memory": {"id": "ClimateRAGMemory-abc1234567"}
-        }
+        mock_client.create_memory.return_value = {"memory": {"id": "ClimateRAGMemory-abc1234567"}}
         mock_client_fn.return_value = mock_client
 
         event = {
@@ -60,9 +58,7 @@ class TestOnEventMemory:
 
         result = on_event(event, None)
 
-        mock_client.delete_memory.assert_called_once_with(
-            memoryId="ClimateRAGMemory-abc1234567"
-        )
+        mock_client.delete_memory.assert_called_once_with(memoryId="ClimateRAGMemory-abc1234567")
         assert result["PhysicalResourceId"] == "ClimateRAGMemory-abc1234567"
 
 
@@ -73,9 +69,7 @@ class TestOnEventCodeInterpreter:
     def test_create_code_interpreter(self, mock_client_fn):
         """Should call create_code_interpreter with networkConfiguration."""
         mock_client = MagicMock()
-        mock_client.create_code_interpreter.return_value = {
-            "codeInterpreterId": "ClimateChart-xyz9876543"
-        }
+        mock_client.create_code_interpreter.return_value = {"codeInterpreterId": "ClimateChart-xyz9876543"}
         mock_client_fn.return_value = mock_client
 
         event = {
@@ -112,9 +106,7 @@ class TestOnEventCodeInterpreter:
 
         result = on_event(event, None)
 
-        mock_client.delete_code_interpreter.assert_called_once_with(
-            codeInterpreterId="ClimateChart-xyz9876543"
-        )
+        mock_client.delete_code_interpreter.assert_called_once_with(codeInterpreterId="ClimateChart-xyz9876543")
 
 
 class TestOnEventGateway:
@@ -124,9 +116,7 @@ class TestOnEventGateway:
     def test_create_gateway(self, mock_client_fn):
         """Should call create_gateway with all required params."""
         mock_client = MagicMock()
-        mock_client.create_gateway.return_value = {
-            "gatewayId": "ClimateGW-qwerty1234"
-        }
+        mock_client.create_gateway.return_value = {"gatewayId": "ClimateGW-qwerty1234"}
         mock_client_fn.return_value = mock_client
 
         event = {
@@ -176,9 +166,7 @@ class TestOnEventGateway:
         # Should delete targets
         assert mock_client.delete_gateway_target.call_count == 2
         # Should delete gateway
-        mock_client.delete_gateway.assert_called_once_with(
-            gatewayIdentifier="ClimateGW-qwerty1234"
-        )
+        mock_client.delete_gateway.assert_called_once_with(gatewayIdentifier="ClimateGW-qwerty1234")
 
 
 class TestIsComplete:
@@ -188,9 +176,7 @@ class TestIsComplete:
     def test_memory_active(self, mock_client_fn):
         """Should return IsComplete=True when memory is ACTIVE."""
         mock_client = MagicMock()
-        mock_client.get_memory.return_value = {
-            "memory": {"status": "ACTIVE"}
-        }
+        mock_client.get_memory.return_value = {"memory": {"status": "ACTIVE"}}
         mock_client_fn.return_value = mock_client
 
         event = {
@@ -206,9 +192,7 @@ class TestIsComplete:
     def test_memory_creating(self, mock_client_fn):
         """Should return IsComplete=False when memory is still CREATING."""
         mock_client = MagicMock()
-        mock_client.get_memory.return_value = {
-            "memory": {"status": "CREATING"}
-        }
+        mock_client.get_memory.return_value = {"memory": {"status": "CREATING"}}
         mock_client_fn.return_value = mock_client
 
         event = {
@@ -271,9 +255,7 @@ class TestIsComplete:
     def test_memory_failed_raises(self, mock_client_fn):
         """Should raise RuntimeError when memory enters FAILED state."""
         mock_client = MagicMock()
-        mock_client.get_memory.return_value = {
-            "memory": {"status": "FAILED"}
-        }
+        mock_client.get_memory.return_value = {"memory": {"status": "FAILED"}}
         mock_client_fn.return_value = mock_client
 
         event = {

@@ -18,14 +18,16 @@ class TestNasaPowerHandler:
 
     def test_successful_response(self):
         """Should return 200 with structured data on success."""
-        fake_api_response = json.dumps({
-            "properties": {
-                "parameter": {
-                    "T2M": {"20200101": 5.2, "20200102": 6.1},
-                    "T2M_MAX": {"20200101": 10.1, "20200102": 11.3},
+        fake_api_response = json.dumps(
+            {
+                "properties": {
+                    "parameter": {
+                        "T2M": {"20200101": 5.2, "20200102": 6.1},
+                        "T2M_MAX": {"20200101": 10.1, "20200102": 11.3},
+                    }
                 }
             }
-        }).encode()
+        ).encode()
 
         mock_response = MagicMock()
         mock_response.read.return_value = fake_api_response
@@ -52,9 +54,7 @@ class TestNasaPowerHandler:
 
     def test_uses_default_parameters(self):
         """Should use default values when event fields are missing."""
-        fake_api_response = json.dumps({
-            "properties": {"parameter": {"T2M": {}}}
-        }).encode()
+        fake_api_response = json.dumps({"properties": {"parameter": {"T2M": {}}}}).encode()
 
         mock_response = MagicMock()
         mock_response.read.return_value = fake_api_response
@@ -88,9 +88,7 @@ class TestNasaPowerHandler:
 
     def test_response_includes_time_range(self):
         """Response body should include the queried time range."""
-        fake_api_response = json.dumps({
-            "properties": {"parameter": {}}
-        }).encode()
+        fake_api_response = json.dumps({"properties": {"parameter": {}}}).encode()
 
         mock_response = MagicMock()
         mock_response.read.return_value = fake_api_response

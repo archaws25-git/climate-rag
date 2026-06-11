@@ -25,6 +25,7 @@ pytestmark = pytest.mark.integration
 
 # ── Helpers to get real resource names ────────────────────────────────────────
 
+
 def _get_real_bucket():
     """Get the actual bucket name from CloudFormation, not conftest's test-bucket."""
     try:

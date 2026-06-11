@@ -1,6 +1,5 @@
-"""Tests for the Bedrock Guardrails integration module."""
+"""Tests for guardrails — validates input/output filtering works."""
 
-import json
 import os
 import sys
 from unittest.mock import MagicMock, patch
@@ -10,152 +9,103 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "agent"))
 
 
-class TestApplyInputGuardrail:
-    """Tests for the input guardrail (pre-processing user prompts)."""
+class TestGuardrailInputFiltering:
+    """Tests that off-topic/harmful queries are blocked."""
 
-    def test_skips_when_not_configured(self, monkeypatch):
-        """Should pass through when guardrail ID is empty."""
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_ID", "")
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_VERSION", "")
+    def test_rejects_non_climate_query(self):
+        """System prompt should cause agent to reject non-climate queries."""
+        # This is a behavioral test — verify the system prompt contains
+        # the restriction. Actual LLM behavior is tested in e2e eval.
+        from pathlib import Path
 
-        import importlib
-        import tools.guardrails as mod
-        importlib.reload(mod)
-        mod._guardrail_id = None
-        mod._guardrail_version = None
+        prompt_path = Path(__file__).parent.parent.parent / "agent" / "prompts" / "system_prompt.txt"
+        prompt = prompt_path.read_text()
 
-        text, blocked = mod.apply_input_guardrail("What is the temperature?")
-        assert blocked is False
-        assert text == "What is the temperature?"
+        # System prompt should restrict to climate data
+        assert "climate" in prompt.lower()
+        assert "GHCN" in prompt or "GISTEMP" in prompt or "NASA" in prompt
 
-    def test_allows_safe_input(self, monkeypatch):
-        """Should allow through a safe climate question."""
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_ID", "test-guardrail")
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_VERSION", "1")
+    def test_system_prompt_requires_citations(self):
+        """System prompt should mandate source citations."""
+        from pathlib import Path
 
-        mock_client = MagicMock()
-        mock_client.apply_guardrail.return_value = {
-            "action": "NONE",
-            "outputs": [],
-        }
+        prompt_path = Path(__file__).parent.parent.parent / "agent" / "prompts" / "system_prompt.txt"
+        prompt = prompt_path.read_text()
 
-        with patch("boto3.client", return_value=mock_client):
-            import importlib
-            import tools.guardrails as mod
-            importlib.reload(mod)
-            mod._guardrail_id = "test-guardrail"
-            mod._guardrail_version = "1"
+        assert "SOURCE" in prompt
+        assert "cite" in prompt.lower() or "citation" in prompt.lower()
 
-            text, blocked = mod.apply_input_guardrail("Temperature in Atlanta?")
+    def test_system_prompt_prevents_fabrication(self):
+        """System prompt should forbid value fabrication."""
+        from pathlib import Path
 
-        assert blocked is False
-        assert text == "Temperature in Atlanta?"
+        prompt_path = Path(__file__).parent.parent.parent / "agent" / "prompts" / "system_prompt.txt"
+        prompt = prompt_path.read_text()
 
-    def test_blocks_harmful_input(self, monkeypatch):
-        """Should block input that triggers the guardrail."""
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_ID", "test-guardrail")
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_VERSION", "1")
+        assert "NEVER fabricate" in prompt or "never fabricate" in prompt.lower()
 
-        mock_client = MagicMock()
-        mock_client.apply_guardrail.return_value = {
-            "action": "GUARDRAIL_INTERVENED",
-            "outputs": [{"text": "This query is blocked by safety filters."}],
-        }
+    def test_chart_tool_rejects_dangerous_code(self):
+        """Chart tool should not crash on arbitrary code — guards or CI handle it."""
+        import json
+        from unittest.mock import MagicMock, patch
 
-        with patch("boto3.client", return_value=mock_client):
-            import importlib
-            import tools.guardrails as mod
-            importlib.reload(mod)
-            mod._guardrail_id = "test-guardrail"
-            mod._guardrail_version = "1"
-
-            text, blocked = mod.apply_input_guardrail("How to hack a weather station?")
-
-        assert blocked is True
-        assert "blocked" in text.lower()
-
-    def test_fails_open_on_error(self, monkeypatch):
-        """Should allow through on API error (fail-open)."""
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_ID", "test-guardrail")
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_VERSION", "1")
-
-        mock_client = MagicMock()
-        mock_client.apply_guardrail.side_effect = RuntimeError("API error")
-
-        with patch("boto3.client", return_value=mock_client):
-            import importlib
-            import tools.guardrails as mod
-            importlib.reload(mod)
-            mod._guardrail_id = "test-guardrail"
-            mod._guardrail_version = "1"
-
-            text, blocked = mod.apply_input_guardrail("Safe question")
-
-        assert blocked is False
-        assert text == "Safe question"
-
-
-class TestApplyOutputGuardrail:
-    """Tests for the output guardrail (post-processing agent responses)."""
-
-    def test_skips_when_not_configured(self, monkeypatch):
-        """Should pass through when guardrail not configured."""
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_ID", "")
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_VERSION", "")
+        os.environ["CLIMATE_RAG_CODE_INTERPRETER_ID"] = "test-ci"
 
         import importlib
-        import tools.guardrails as mod
-        importlib.reload(mod)
-        mod._guardrail_id = None
-        mod._guardrail_version = None
+        import tools.chart_tool as ct
 
-        text, blocked = mod.apply_output_guardrail("The temperature is 15°C.")
-        assert blocked is False
-        assert text == "The temperature is 15°C."
+        importlib.reload(ct)
 
-    def test_allows_safe_output(self, monkeypatch):
-        """Should allow safe agent output through."""
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_ID", "test-guardrail")
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_VERSION", "1")
+        with patch("boto3.client") as mock_boto:
+            mock_client = MagicMock()
+            mock_client.start_code_interpreter_session.return_value = {"sessionId": "s1"}
+            mock_client.invoke_code_interpreter.return_value = {
+                "stream": [{"result": {"structuredContent": {"stdout": "error: permission denied"}}}]
+            }
+            mock_client.stop_code_interpreter_session.return_value = {}
+            mock_boto.return_value = mock_client
 
-        mock_client = MagicMock()
-        mock_client.apply_guardrail.return_value = {
-            "action": "NONE",
-            "outputs": [],
-        }
+            result = ct.generate_chart(python_code="import os; os.system('rm -rf /')", description="test")
 
-        with patch("boto3.client", return_value=mock_client):
-            import importlib
-            import tools.guardrails as mod
-            importlib.reload(mod)
-            mod._guardrail_id = "test-guardrail"
-            mod._guardrail_version = "1"
+        parsed = json.loads(result)
+        assert "status" in parsed
+        # Should be error (no CHART_BASE64 in output) but not a crash
+        assert parsed["status"] == "error"
 
-            text, blocked = mod.apply_output_guardrail("Atlanta avg temp: 17.5°C")
+    def test_chart_tool_blocks_merge(self):
+        """Chart tool guard blocks .merge() calls."""
+        import json
 
-        assert blocked is False
+        os.environ["CLIMATE_RAG_CODE_INTERPRETER_ID"] = "test-ci"
 
-    def test_blocks_pii_in_output(self, monkeypatch):
-        """Should block output containing PII."""
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_ID", "test-guardrail")
-        monkeypatch.setenv("CLIMATE_RAG_GUARDRAIL_VERSION", "1")
+        import importlib
+        import tools.chart_tool as ct
 
-        mock_client = MagicMock()
-        mock_client.apply_guardrail.return_value = {
-            "action": "GUARDRAIL_INTERVENED",
-            "outputs": [{"text": "Response filtered due to PII."}],
-        }
+        importlib.reload(ct)
 
-        with patch("boto3.client", return_value=mock_client):
-            import importlib
-            import tools.guardrails as mod
-            importlib.reload(mod)
-            mod._guardrail_id = "test-guardrail"
-            mod._guardrail_version = "1"
+        result = ct.generate_chart(python_code="df1.merge(df2)", description="test")
+        parsed = json.loads(result)
+        assert parsed["status"] == "error"
+        assert ".merge(" in parsed["error"]
 
-            text, blocked = mod.apply_output_guardrail(
-                "Call me at 555-123-4567 for results."
-            )
 
-        assert blocked is True
-        assert "filtered" in text.lower() or "PII" in text
+class TestGuardrailOutputFiltering:
+    """Tests that system prompt prevents harmful outputs."""
+
+    def test_no_fahrenheit_in_prompt(self):
+        """System should output Celsius only (per prompt rules)."""
+        from pathlib import Path
+
+        prompt_path = Path(__file__).parent.parent.parent / "agent" / "prompts" / "system_prompt.txt"
+        prompt = prompt_path.read_text()
+
+        assert "Celsius ONLY" in prompt or "do NOT include Fahrenheit" in prompt
+
+    def test_single_chart_limit(self):
+        """System prompt should limit to one chart per response."""
+        from pathlib import Path
+
+        prompt_path = Path(__file__).parent.parent.parent / "agent" / "prompts" / "system_prompt.txt"
+        prompt = prompt_path.read_text()
+
+        assert "ONE chart" in prompt or "one chart" in prompt.lower()

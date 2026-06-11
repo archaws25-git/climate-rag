@@ -95,6 +95,7 @@ plt.close()
         # Need to reload module to pick up new env
         import importlib
         import tools.chart_tool as ct
+
         importlib.reload(ct)
 
         result = ct.generate_chart(
@@ -114,15 +115,22 @@ class TestChartToolErrorHandling:
         monkeypatch.setenv("CLIMATE_RAG_CODE_INTERPRETER_ID", "test-ci-id")
         import importlib
         import tools.chart_tool as ct
+
         importlib.reload(ct)
 
         with patch("boto3.client") as mock_boto:
             mock_client = MagicMock()
             mock_client.start_code_interpreter_session.return_value = {"sessionId": "s1"}
             mock_client.invoke_code_interpreter.return_value = {
-                "stream": [{"result": {"structuredContent": {
-                    "stdout": "Traceback (most recent call last):\nAttributeError: 'dict' has no attribute 'merge'"
-                }}}]
+                "stream": [
+                    {
+                        "result": {
+                            "structuredContent": {
+                                "stdout": "Traceback (most recent call last):\nAttributeError: 'dict' has no attribute 'merge'"
+                            }
+                        }
+                    }
+                ]
             }
             mock_client.stop_code_interpreter_session.return_value = {}
             mock_boto.return_value = mock_client

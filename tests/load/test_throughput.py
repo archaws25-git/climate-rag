@@ -59,6 +59,7 @@ if _ci_id:
 else:
     os.environ["CLIMATE_RAG_CODE_INTERPRETER_ID"] = ""
 
+
 # Get bucket name from CloudFormation stack output
 def _get_bucket_name():
     """Read bucket name from CloudFormation DataStack output."""
@@ -71,6 +72,7 @@ def _get_bucket_name():
     except Exception:
         pass
     return os.environ.get("CLIMATE_RAG_BUCKET", "")
+
 
 _bucket = _get_bucket_name()
 if _bucket:
@@ -103,8 +105,10 @@ class TestRagSearchThroughput:
         monkeypatch.setenv("CLIMATE_RAG_MEMORY_ID", "")
 
         from tools.rag_tool import _load_index, search_climate_data
+
         # Reset index cache so it re-downloads with correct bucket
         import tools.rag_tool as rag_mod
+
         rag_mod._index = None
         rag_mod._metadata = None
         rag_mod._bm25_index = None
@@ -123,7 +127,7 @@ class TestRagSearchThroughput:
         assert latency < 2.0, f"Single query took {latency:.2f}s (limit: 2s)"
         parsed = json.loads(result)
         assert "results" in parsed
-        print(f"\n  Single query latency: {latency*1000:.0f}ms")
+        print(f"\n  Single query latency: {latency * 1000:.0f}ms")
 
     def test_sequential_throughput(self):
         """Measure sequential QPS over 10 queries."""
@@ -139,7 +143,7 @@ class TestRagSearchThroughput:
         print(f"    Queries: {len(BENCHMARK_QUERIES)}")
         print(f"    Total time: {elapsed:.2f}s")
         print(f"    QPS: {qps:.1f}")
-        print(f"    Avg latency: {avg_latency*1000:.0f}ms")
+        print(f"    Avg latency: {avg_latency * 1000:.0f}ms")
 
         # Baseline: FAISS search + embedding should do > 1 QPS
         assert qps > 0.5, f"QPS too low: {qps:.2f}"
@@ -160,8 +164,8 @@ class TestRagSearchThroughput:
 
         print(f"\n  Burst throughput (20 queries):")
         print(f"    QPS: {qps:.1f}")
-        print(f"    Avg latency: {avg*1000:.0f}ms")
-        print(f"    P95 latency: {p95*1000:.0f}ms")
+        print(f"    Avg latency: {avg * 1000:.0f}ms")
+        print(f"    P95 latency: {p95 * 1000:.0f}ms")
 
         assert avg < 5.0, f"Average latency too high: {avg:.2f}s"
 
@@ -179,6 +183,7 @@ class TestConcurrentThroughput:
 
         from tools.rag_tool import _load_index, search_climate_data
         import tools.rag_tool as rag_mod
+
         rag_mod._index = None
         rag_mod._metadata = None
         rag_mod._bm25_index = None
@@ -193,10 +198,7 @@ class TestConcurrentThroughput:
         errors = []
 
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {
-                executor.submit(self.search, query=q, top_k=5): q
-                for q in BENCHMARK_QUERIES[:5]
-            }
+            futures = {executor.submit(self.search, query=q, top_k=5): q for q in BENCHMARK_QUERIES[:5]}
             start = time.time()
 
             for future in as_completed(futures):
@@ -225,10 +227,7 @@ class TestConcurrentThroughput:
         errors = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = {
-                executor.submit(self.search, query=q, top_k=5): q
-                for q in BENCHMARK_QUERIES
-            }
+            futures = {executor.submit(self.search, query=q, top_k=5): q for q in BENCHMARK_QUERIES}
             start = time.time()
 
             for future in as_completed(futures):
@@ -263,6 +262,7 @@ class TestFullAgentThroughput:
         monkeypatch.setenv("CLIMATE_RAG_CODE_INTERPRETER_ID", _ci_id if _ci_id else "")
 
         from main import handle_request
+
         self.handle = handle_request
 
     def test_single_request_latency(self):

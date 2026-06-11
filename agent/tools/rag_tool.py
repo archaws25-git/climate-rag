@@ -59,14 +59,11 @@ def _get_bedrock_client():
 
 
 def _embed_query(text: str) -> np.ndarray:
-    """Generate embedding vector for a query using Titan Embeddings v2."""
+    """Generate embedding vector for a query using Titan Embeddings v2 (cached)."""
+    from tools.embedding_cache import get_cached_embedding
+
     client = _get_bedrock_client()
-    resp = client.invoke_model(
-        modelId="amazon.titan-embed-text-v2:0",
-        body=json.dumps({"inputText": text}),
-    )
-    vec = json.loads(resp["body"].read())["embedding"]
-    return np.array(vec, dtype="float32").reshape(1, -1)
+    return get_cached_embedding(client, text)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -250,9 +247,7 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
 
     geo = extract_geo_filter(query)
     is_geo_query = geo is not None
-    is_solar_precip = bool(re.search(
-        r'\b(solar|radiation|precip|rainfall|rain)\b', query, re.IGNORECASE
-    ))
+    is_solar_precip = bool(re.search(r"\b(solar|radiation|precip|rainfall|rain)\b", query, re.IGNORECASE))
 
     if is_geo_query and not is_solar_precip:
         for doc_idx in rrf_scores:
@@ -289,6 +284,13 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
                 "time_range": metadata.get("time_range", ""),
             }
         )
+
+    # Optional re-ranking pass for precision improvement
+    # Only applies when CLIMATE_RAG_RERANK env var is set (adds latency)
+    if os.environ.get("CLIMATE_RAG_RERANK") and len(results) > 3:
+        from tools.reranker import rerank
+
+        results = rerank(query, results, top_k=top_k)
 
     return results
 
@@ -371,9 +373,13 @@ def _multi_entity_search(query: str, top_k: int) -> str:
         # Entity relevance check: station_name or region must contain one of the entities
         station = r.get("station_name", "").lower()
         region = r.get("region", "").lower()
-        if (entity_a_lower in station or entity_a_lower in region or
-                entity_b_lower in station or entity_b_lower in region or
-                r.get("source") == "GISTEMP_v4"):  # Always allow global data through
+        if (
+            entity_a_lower in station
+            or entity_a_lower in region
+            or entity_b_lower in station
+            or entity_b_lower in region
+            or r.get("source") == "GISTEMP_v4"
+        ):  # Always allow global data through
             merged.append(r)
 
     # Determine max_results using the temporal range from the original query

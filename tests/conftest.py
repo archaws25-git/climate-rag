@@ -41,25 +41,27 @@ def sample_chunks():
     ]
     chunks = []
     for i, (sid, name, state, region) in enumerate(stations):
-        chunks.append({
-            "chunk_id": f"ghcn_{sid}_{1950 + i * 10}s",
-            "text": (
-                f"NOAA GHCN v4 Monthly Temperature — {name}, {state}\n"
-                f"Station: {sid} | Region: {region}\n"
-                f"Decade: {1950 + i * 10}s | Period: {1950 + i * 10}-{1959 + i * 10}\n"
-                f"Average temperature: {15.0 + i * 0.3:.1f}°C\n"
-            ),
-            "metadata": {
-                "dataset": "GHCN_v4",
-                "station_id": sid,
-                "station_name": name,
-                "state": state,
-                "region": region,
-                "decade": f"{1950 + i * 10}s",
-                "time_range": f"{1950 + i * 10}-{1959 + i * 10}",
-            },
-            "embedding": np.random.randn(1024).astype("float32").tolist(),
-        })
+        chunks.append(
+            {
+                "chunk_id": f"ghcn_{sid}_{1950 + i * 10}s",
+                "text": (
+                    f"NOAA GHCN v4 Monthly Temperature — {name}, {state}\n"
+                    f"Station: {sid} | Region: {region}\n"
+                    f"Decade: {1950 + i * 10}s | Period: {1950 + i * 10}-{1959 + i * 10}\n"
+                    f"Average temperature: {15.0 + i * 0.3:.1f}°C\n"
+                ),
+                "metadata": {
+                    "dataset": "GHCN_v4",
+                    "station_id": sid,
+                    "station_name": name,
+                    "state": state,
+                    "region": region,
+                    "decade": f"{1950 + i * 10}s",
+                    "time_range": f"{1950 + i * 10}-{1959 + i * 10}",
+                },
+                "embedding": np.random.randn(1024).astype("float32").tolist(),
+            }
+        )
     return chunks
 
 

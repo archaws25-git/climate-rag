@@ -169,9 +169,7 @@ class TestApplyMetadataFilters:
             assert decade == "1990s"
 
     def test_combined_filter(self, sample_metadata):
-        indices, _ = apply_metadata_filters(
-            sample_metadata, "Southeast temperature in the 1990s"
-        )
+        indices, _ = apply_metadata_filters(sample_metadata, "Southeast temperature in the 1990s")
         for idx in indices:
             meta = sample_metadata[idx]["metadata"]
             assert meta.get("decade") == "1990s"
@@ -179,9 +177,7 @@ class TestApplyMetadataFilters:
 
     def test_fallback_on_empty_result(self, sample_metadata):
         # A filter so restrictive it matches nothing should fall back to all
-        indices, _ = apply_metadata_filters(
-            sample_metadata, "temperature in Antarctica in the 1800s"
-        )
+        indices, _ = apply_metadata_filters(sample_metadata, "temperature in Antarctica in the 1800s")
         # "Antarctica" won't match any city/region, "1800s" won't match any decade
         # So temporal filter applies but finds nothing → fallback to all
         assert len(indices) == len(sample_metadata)

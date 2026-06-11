@@ -74,6 +74,7 @@ class TestMemorySaveAndRecall:
 
         # Recall
         import json
+
         result = get_recent_turns(
             actor_id=session_context["actor_id"],
             session_id=session_context["session_id"],
@@ -96,6 +97,7 @@ class TestMemorySaveAndRecall:
 
         # Search for it semantically
         import json
+
         result = recall_research_context(
             actor_id=session_context["actor_id"],
             session_id=session_context["session_id"],

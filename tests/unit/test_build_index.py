@@ -22,6 +22,7 @@ class TestLoadEmbeddedChunks:
         # Re-import to pick up new env
         import importlib
         import ingest.build_index as mod
+
         importlib.reload(mod)
         mod.CHUNK_DIR = sample_chunks_dir
 
@@ -32,6 +33,7 @@ class TestLoadEmbeddedChunks:
         """Every loaded chunk must have an embedding field."""
         import importlib
         import ingest.build_index as mod
+
         importlib.reload(mod)
         mod.CHUNK_DIR = sample_chunks_dir
 
@@ -47,6 +49,7 @@ class TestLoadEmbeddedChunks:
 
         import importlib
         import ingest.build_index as mod
+
         importlib.reload(mod)
         mod.CHUNK_DIR = str(tmp_path)
 

@@ -40,17 +40,24 @@ class TestHandleRequest:
         mock_agent_instance = MagicMock()
         mock_agent_instance.return_value = "The global temperature has risen by 1.1°C."
 
-        with patch.dict("sys.modules", {
-            "strands": MagicMock(),
-            "strands.models": MagicMock(),
-            "strands.models.bedrock": MagicMock(),
-        }):
-            with patch("builtins.__import__", wraps=__builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__):
+        with patch.dict(
+            "sys.modules",
+            {
+                "strands": MagicMock(),
+                "strands.models": MagicMock(),
+                "strands.models.bedrock": MagicMock(),
+            },
+        ):
+            with patch(
+                "builtins.__import__",
+                wraps=__builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__,
+            ):
                 # Use direct function test approach
                 pass
 
         # Simplified approach: test the lambda_handler logic directly
         from agent.main import handle_request
+
         with patch("agent.main.agent", mock_agent_instance):
             result = handle_request("What is the global temperature trend?")
 
@@ -68,6 +75,7 @@ class TestHandleRequest:
         mock_agent_instance = MagicMock(return_value="Answer")
 
         from agent.main import handle_request
+
         with patch("agent.main.agent", mock_agent_instance):
             result = handle_request("test query")
         assert len(result["session_id"]) > 0
@@ -81,6 +89,7 @@ class TestHandleRequest:
         mock_agent_instance = MagicMock(return_value="Answer")
 
         from agent.main import handle_request
+
         with patch("agent.main.agent", mock_agent_instance):
             result = handle_request("test query", session_id="my-session-123")
         assert result["session_id"] == "my-session-123"
@@ -101,6 +110,7 @@ class TestHandleRequest:
         mock_agent_instance = MagicMock(side_effect=create_chart_side_effect)
 
         from agent.main import handle_request
+
         with patch("agent.main.agent", mock_agent_instance):
             result = handle_request("Plot temperature trends")
         assert len(result["charts"]) == 1
@@ -118,9 +128,7 @@ class TestLambdaHandler:
 
         from agent.main import lambda_handler
 
-        mock_handle = MagicMock(return_value={
-            "response": "Answer", "session_id": "s1", "charts": []
-        })
+        mock_handle = MagicMock(return_value={"response": "Answer", "session_id": "s1", "charts": []})
 
         with patch("agent.main.handle_request", mock_handle):
             event = {"body": json.dumps({"prompt": "What is the trend?"})}
@@ -136,9 +144,7 @@ class TestLambdaHandler:
 
         from agent.main import lambda_handler
 
-        mock_handle = MagicMock(return_value={
-            "response": "Answer", "session_id": "s1", "charts": []
-        })
+        mock_handle = MagicMock(return_value={"response": "Answer", "session_id": "s1", "charts": []})
 
         with patch("agent.main.handle_request", mock_handle):
             event = {"prompt": "Direct dict prompt", "actor_id": "user-42"}
@@ -154,20 +160,20 @@ class TestLambdaHandler:
 
         from agent.main import lambda_handler
 
-        mock_handle = MagicMock(return_value={
-            "response": "Answer", "session_id": "existing-session", "charts": []
-        })
+        mock_handle = MagicMock(return_value={"response": "Answer", "session_id": "existing-session", "charts": []})
 
         with patch("agent.main.handle_request", mock_handle):
-            event = {"body": json.dumps({
-                "prompt": "Follow up question",
-                "session_id": "existing-session",
-            })}
+            event = {
+                "body": json.dumps(
+                    {
+                        "prompt": "Follow up question",
+                        "session_id": "existing-session",
+                    }
+                )
+            }
             lambda_handler(event)
 
-        mock_handle.assert_called_once_with(
-            "Follow up question", "existing-session", "default"
-        )
+        mock_handle.assert_called_once_with("Follow up question", "existing-session", "default")
 
     def test_empty_prompt(self, monkeypatch, tmp_path):
         """Should handle missing prompt gracefully."""
@@ -177,9 +183,7 @@ class TestLambdaHandler:
 
         from agent.main import lambda_handler
 
-        mock_handle = MagicMock(return_value={
-            "response": "", "session_id": "s1", "charts": []
-        })
+        mock_handle = MagicMock(return_value={"response": "", "session_id": "s1", "charts": []})
 
         with patch("agent.main.handle_request", mock_handle):
             event = {"body": json.dumps({})}

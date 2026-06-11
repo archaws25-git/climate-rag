@@ -20,6 +20,7 @@ class TestIndexVersioning:
             upload_versioned_index,
             list_versions,
         )
+
         assert callable(compute_index_hash)
         assert callable(upload_versioned_index)
         assert callable(list_versions)
@@ -69,6 +70,7 @@ class TestIndexVersioning:
             mock_session_cls.return_value.client.return_value = mock_s3
 
             from ingest.index_versioning import upload_versioned_index
+
             upload_versioned_index(
                 bucket="test-bucket",
                 local_index_path=str(idx),
@@ -89,6 +91,7 @@ class TestIndexVersioning:
             mock_session_cls.return_value.client.return_value = mock_s3
 
             from ingest.index_versioning import list_versions
+
             versions = list_versions(bucket="test-bucket")
 
             assert isinstance(versions, list)
