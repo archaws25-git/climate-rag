@@ -191,7 +191,7 @@ def extract_geo_filter(query: str) -> Optional[dict]:
 def apply_metadata_filters(
     metadata: list[dict],
     query: str,
-) -> list[int]:
+) -> tuple[list[int], int]:
     """Apply temporal + geographic filters and return indices of matching chunks.
 
     Args:
@@ -199,15 +199,27 @@ def apply_metadata_filters(
         query: The user's natural language query.
 
     Returns:
-        List of valid indices into the metadata/FAISS index.
-        Returns ALL indices if no filters match (no restriction).
+        Tuple of (valid_indices, expected_decades_per_entity).
+        - valid_indices: List of valid indices into the metadata/FAISS index.
+          Returns ALL indices if no filters match (no restriction).
+        - expected_decades_per_entity: Number of decades in the temporal range
+          (0 if no temporal filter detected). Used by multi-entity search to
+          set appropriate result caps.
     """
     temporal = extract_temporal_filter(query)
     geo = extract_geo_filter(query)
 
+    # Compute expected decades from temporal range
+    expected_decades = 0
+    if temporal is not None:
+        min_decade, max_decade = temporal
+        min_year = int(min_decade[:-1])
+        max_year = int(max_decade[:-1])
+        expected_decades = ((max_year - min_year) // 10) + 1
+
     # If no filters detected, return all indices (no restriction)
     if temporal is None and geo is None:
-        return list(range(len(metadata)))
+        return list(range(len(metadata))), expected_decades
 
     valid_indices = []
 
@@ -247,6 +259,6 @@ def apply_metadata_filters(
 
     # If filters are too restrictive (0 results), fall back to all indices
     if not valid_indices:
-        return list(range(len(metadata)))
+        return list(range(len(metadata))), expected_decades
 
-    return valid_indices
+    return valid_indices, expected_decades

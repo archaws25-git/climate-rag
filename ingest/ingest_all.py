@@ -168,43 +168,31 @@ def _generate_synthetic_power_chunks():
     import random
     random.seed(123)
 
-    # Verified values from NREL/NOAA/NASA POWER for each region
+    # Verified values from NREL for each region (solar only)
     regions = {
         "Southeast": {
             "lat": 33.45, "lon": -84.39, "city": "Atlanta, GA",
-            "base_temp": 16.9,   # NOAA 1991-2020 normal for Atlanta
             "solar": 4.69,       # NREL avg annual GHI for Georgia
-            "precip": 3.4,       # mm/day avg (1245 mm/yr / 365)
         },
         "Northeast": {
             "lat": 40.71, "lon": -74.01, "city": "New York, NY",
-            "base_temp": 13.0,   # NOAA normal for NYC
             "solar": 3.98,       # NREL avg for New York state
-            "precip": 3.3,       # mm/day
         },
         "Midwest": {
             "lat": 41.88, "lon": -87.63, "city": "Chicago, IL",
-            "base_temp": 10.4,   # NOAA normal for Chicago
             "solar": 3.92,       # NREL avg for Illinois
-            "precip": 2.5,       # mm/day
         },
         "West": {
             "lat": 37.77, "lon": -122.42, "city": "San Francisco, CA",
-            "base_temp": 14.6,   # NOAA normal for SF
             "solar": 5.23,       # NREL avg for California
-            "precip": 1.7,       # mm/day (dry climate)
         },
         "Alaska": {
             "lat": 61.22, "lon": -149.90, "city": "Anchorage, AK",
-            "base_temp": 2.8,    # NOAA normal for Anchorage
             "solar": 2.73,       # NREL avg for south-central Alaska
-            "precip": 1.2,       # mm/day
         },
         "Hawaii": {
             "lat": 21.31, "lon": -157.86, "city": "Honolulu, HI",
-            "base_temp": 25.4,   # NOAA normal for Honolulu
             "solar": 5.64,       # NREL avg for Hawaii
-            "precip": 1.5,       # mm/day (leeward side)
         },
     }
 
@@ -216,29 +204,18 @@ def _generate_synthetic_power_chunks():
             start_year = max(decade_start, 1981)
             end_year = min(decade_start + 9, 2025)
 
-            # Apply observed warming trend: ~0.007 deg C/year since 1991 baseline
-            years_since_baseline = (start_year + end_year) / 2 - 1991
-            warming = years_since_baseline * 0.007
-            avg_temp = info["base_temp"] + warming + random.gauss(0, 0.3)
-
             # Solar is relatively stable with minor interannual variation
             avg_solar = info["solar"] + random.gauss(0, 0.1)
 
-            # Precip has high variability
-            avg_precip = info["precip"] + random.gauss(0, 0.3)
-
             text = (
-                f"{region_name} United States precipitation, solar radiation, and climate data.\n"
+                f"{region_name} United States solar radiation data.\n"
                 f"NASA POWER satellite-derived data for the {region_name} region "
                 f"({info['city']}).\n"
-                f"This dataset contains precipitation (rainfall), solar radiation "
-                f"(surface sunlight), and temperature measurements.\n"
+                f"This dataset contains solar radiation (surface sunlight) measurements.\n"
                 f"Coordinates: {info['lat']}°N, {info['lon']}°W\n"
                 f"Decade: {decade} | Period: {start_year}-{end_year}\n"
-                f"Average temperature (T2M): {avg_temp:.1f}°C ({avg_temp * 9/5 + 32:.1f}°F)\n"
                 f"Average solar radiation (ALLSKY_SFC_SW_DWN): {avg_solar:.2f} kWh/m2/day\n"
-                f"Average precipitation (PRECTOTCORR): {avg_precip:.1f} mm/day\n"
-                f"Parameters measured: T2M, T2M_MAX, T2M_MIN, PRECTOTCORR, ALLSKY_SFC_SW_DWN\n"
+                f"Parameters measured: ALLSKY_SFC_SW_DWN\n"
                 f"Region: {region_name}. Dataset: NASA POWER.\n"
             )
 
@@ -253,8 +230,8 @@ def _generate_synthetic_power_chunks():
                     "lon": info["lon"],
                     "decade": decade,
                     "time_range": f"{start_year}-{end_year}",
-                    "avg_temp_c": round(avg_temp, 1),
-                    "parameters": "T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,ALLSKY_SFC_SW_DWN",
+                    "avg_solar_kwh": round(avg_solar, 2),
+                    "parameters": "ALLSKY_SFC_SW_DWN",
                 },
             })
 

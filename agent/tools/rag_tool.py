@@ -220,7 +220,7 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
     to reduce the candidate set and improve both speed and relevance.
     """
     # Apply metadata pre-filters
-    valid_indices = apply_metadata_filters(_metadata, query)
+    valid_indices, expected_decades = apply_metadata_filters(_metadata, query)
 
     # Run both search backends with filtered indices
     vector_results = _vector_search(query, top_k * 2, valid_indices)
@@ -310,7 +310,15 @@ def search_climate_data(query: str, top_k: int = 10) -> str:
         return _multi_entity_search(query, top_k)
 
     # For non-comparison queries, use lower top_k to reduce context sent to LLM
-    effective_k = min(top_k, 5)
+    # Exception: trend/plot/history queries need more results to cover all decades
+    trend_pattern = re.compile(
+        r'\b(trend|plot|graph|chart|history|since|over time|all decades|anomalies)\b',
+        re.IGNORECASE
+    )
+    if trend_pattern.search(query):
+        effective_k = 15  # Full coverage for multi-decade trend queries
+    else:
+        effective_k = min(top_k, 5)
     results = _hybrid_search(query, effective_k)
     return _format_response(results)
 
@@ -365,9 +373,14 @@ def _multi_entity_search(query: str, top_k: int) -> str:
             seen_texts.add(text_key)
             merged.append(r)
 
-    # Sort by RRF score descending and limit
-    # For comparisons, cap at 10 (5 per entity) to reduce LLM context
-    max_results = min(max(top_k, 10), 10)
+    # Determine max_results using the temporal range from the original query
+    # This is deterministic — based on parsed decade count, not search results
+    _, expected_decades = apply_metadata_filters(_metadata, query)
+    if expected_decades > 5:
+        # Need full decade coverage for both entities
+        max_results = expected_decades * 2
+    else:
+        max_results = 10
     merged.sort(key=lambda x: x.get("rrf_score", x["score"]), reverse=True)
     merged = merged[:max_results]
 

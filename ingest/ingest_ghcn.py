@@ -188,7 +188,7 @@ _STATION_IDS = ",".join(STATIONS.keys())
 GHCN_URL = (
     "https://www.ncei.noaa.gov/access/services/data/v1"
     "?dataset=global-summary-of-the-month"
-    "&dataTypes=TAVG,TMAX,TMIN"
+    "&dataTypes=TAVG,TMAX,TMIN,PRCP"
     f"&stations={_STATION_IDS}"
     "&startDate=1950-01-01"
     "&endDate=2025-12-31"
@@ -273,7 +273,7 @@ def generate_sample_data():
         "Hawaii": 0.004,          # Below average (ocean-buffered tropics)
     }
 
-    lines = ["STATION,DATE,TAVG,TMAX,TMIN"]
+    lines = ["STATION,DATE,TAVG,TMAX,TMIN,PRCP"]
     for station_id, info in STATIONS.items():
         region = info["region"]
         base_temp = region_base_temps[region]
@@ -290,9 +290,14 @@ def generate_sample_data():
                 tavg = base_temp + station_offset + warming + seasonal + noise
                 tmax = tavg + random.uniform(4, 7)
                 tmin = tavg - random.uniform(4, 7)
+                # Precipitation: region-dependent with seasonal variation
+                base_prcp = {"Southeast": 110, "Northeast": 95, "Midwest": 80,
+                             "West": 45, "South Central": 90, "Alaska": 40, "Hawaii": 50}
+                prcp = max(0, base_prcp[region] + random.gauss(0, 30) +
+                           20 * (1 if month in (6, 7, 8) else 0))
                 lines.append(
                     f"{station_id},{year}-{month:02d}-01,"
-                    f"{tavg:.1f},{tmax:.1f},{tmin:.1f}"
+                    f"{tavg:.1f},{tmax:.1f},{tmin:.1f},{prcp:.1f}"
                 )
     return "\n".join(lines)
 
@@ -320,9 +325,14 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
         if not tavg:
             continue
 
+        prcp = row.get("PRCP", "").strip()
+        prcp_val = float(prcp) if prcp else None
+
         if key not in station_decades:
             station_decades[key] = []
-        station_decades[key].append({"year": year, "month": date[5:7], "tavg": float(tavg)})
+        station_decades[key].append({
+            "year": year, "month": date[5:7], "tavg": float(tavg), "prcp": prcp_val
+        })
 
     chunks = []
     for (station, decade), records in sorted(station_decades.items()):
@@ -339,16 +349,20 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
         city_name = info.get("city", info["name"].split(" ")[0])
         aliases = info.get("aliases", "")
 
+        # Compute precipitation stats
+        prcp_values = [r["prcp"] for r in records if r.get("prcp") is not None]
+        avg_prcp = sum(prcp_values) / len(prcp_values) if prcp_values else None
+
         text = (
             f"{info['region']} (US {info['region']}, {info['region']}ern US) "
             f"United States climate data: "
-            f"{info['name']}, {info['state']} temperature records.\n"
+            f"{info['name']}, {info['state']} temperature and precipitation records.\n"
             f"City: {city_name}, {info['state']}. "
         )
         if aliases:
             text += f"Also known as: {aliases}. "
         text += (
-            f"This is NOAA GHCN v4 monthly temperature data for "
+            f"This is NOAA GHCN v4 monthly temperature and precipitation data for "
             f"{city_name} in the US {info['region']} region.\n"
             f"Weather station: {info['name']} (ID: {station}), "
             f"located in {info['state']} at {info['lat']}°N, {info['lon']}°W.\n"
@@ -356,6 +370,10 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
             f"Based on {len(records)} monthly observations:\n"
             f"  Average temperature: {avg:.1f}°C ({avg * 9/5 + 32:.1f}°F)\n"
             f"  Temperature range: {min(temps):.1f}°C to {max(temps):.1f}°C\n"
+        )
+        if avg_prcp is not None:
+            text += f"  Average monthly precipitation: {avg_prcp:.1f} mm\n"
+        text += (
             f"Region: {info['region']}. US {info['region']}. State: {info['state']}. "
             f"City: {city_name}. Station: {info['name']}. Decade: {decade}.\n"
         )
@@ -374,6 +392,7 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
                 "decade": decade,
                 "time_range": f"{min(years)}-{max(years)}",
                 "avg_temp_c": round(avg, 1),
+                "avg_prcp_mm": round(avg_prcp, 1) if avg_prcp is not None else None,
             },
         })
 
