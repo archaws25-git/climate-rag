@@ -52,14 +52,31 @@ _bm25_corpus_tokens = None
 
 
 def _get_bedrock_client():
-    """Get a Bedrock Runtime client using the configured profile."""
-    profile = os.environ.get("AWS_PROFILE")
+    """Get a Bedrock Runtime client using the configured profile.
+
+    An empty AWS_PROFILE is treated as unset so boto3 falls back to the
+    default credential chain (instance profile, env vars, etc.) rather
+    than raising a ProfileNotFound error.
+    """
+    profile = os.environ.get("AWS_PROFILE") or None
     session = boto3.Session(profile_name=profile, region_name=BEDROCK_REGION)
     return session.client("bedrock-runtime")
 
 
 def _embed_query(text: str) -> np.ndarray:
-    """Generate embedding vector for a query using Titan Embeddings v2 (cached)."""
+    """Generate embedding vector for a query using Titan Embeddings v2 (cached).
+
+    When CLIMATE_RAG_STUB_EMBEDDINGS=1 (e.g. in CI without AWS credentials),
+    returns a deterministic pseudo-random vector derived from the query text.
+    This allows the full retrieval pipeline (FAISS search, BM25, RRF, metrics)
+    to execute without any AWS calls — useful for structural regression checks.
+    """
+    if os.environ.get("CLIMATE_RAG_STUB_EMBEDDINGS") == "1":
+        rng = np.random.default_rng(seed=abs(hash(text)) % (2**31))
+        vec = rng.standard_normal((1, 1024)).astype("float32")
+        faiss.normalize_L2(vec)
+        return vec
+
     from tools.embedding_cache import get_cached_embedding
 
     client = _get_bedrock_client()
@@ -113,7 +130,7 @@ def _load_index():
             "or set CLIMATE_RAG_BUCKET and upload the index to S3."
         )
 
-    profile = os.environ.get("AWS_PROFILE")
+    profile = os.environ.get("AWS_PROFILE") or None
     session = boto3.Session(profile_name=profile, region_name=BEDROCK_REGION)
     s3 = session.client("s3")
     tmpdir = tempfile.mkdtemp()

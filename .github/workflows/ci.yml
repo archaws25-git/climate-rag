@@ -153,6 +153,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Verify committed index and chunks are present
+        env:
+          AWS_REGION: us-east-1
+          CHUNK_OUTPUT_DIR: data/chunks
+          CLIMATE_RAG_BUCKET: ""
+          AWS_PROFILE: ""
+          CLIMATE_RAG_SKIP_SSM: "1"
         run: |
           # The FAISS index and embedded chunks must be committed to the repo.
           # If missing, the retrieval gate cannot run — fail loudly so the gap is visible.
@@ -186,9 +192,20 @@ jobs:
       - name: Run retrieval eval
         env:
           AWS_REGION: us-east-1
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: dummy-ci-key-id
+          AWS_SECRET_ACCESS_KEY: dummy-ci-secret-key
+          AWS_SESSION_TOKEN: ""
+          AWS_PROFILE: ""
           CHUNK_OUTPUT_DIR: data/chunks
           CLIMATE_RAG_BUCKET: ""
-          AWS_PROFILE: ""
+          # Skip SSM/CloudFormation lookup at import time — no real AWS access in CI
+          CLIMATE_RAG_SKIP_SSM: "1"
+          # Use deterministic stub embeddings instead of Bedrock Titan —
+          # no AWS credentials required. Retrieval metrics (Recall, Precision,
+          # MRR, NDCG) measure index structure and BM25 matching, which are
+          # valid without real semantic embeddings.
+          CLIMATE_RAG_STUB_EMBEDDINGS: "1"
         run: |
           python eval/run.py --suite retrieval --top-k 5
           echo "✅ Retrieval eval complete — check results in eval/results/"

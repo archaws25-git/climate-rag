@@ -55,7 +55,7 @@ def _load_from_ssm():
         try:
             import boto3
 
-            profile = os.environ.get("AWS_PROFILE")
+            profile = os.environ.get("AWS_PROFILE") or None
             session = boto3.Session(
                 profile_name=profile,
                 region_name=os.environ["AWS_REGION"],
@@ -102,7 +102,9 @@ def _load_from_ssm():
 
 # Load SSM/CloudFormation values at import time.
 # Has a 5-second timeout so it won't block indefinitely if credentials are expired.
-_load_from_ssm()
+# Skipped entirely when CLIMATE_RAG_SKIP_SSM=1 (e.g. in CI with dummy credentials).
+if not os.environ.get("CLIMATE_RAG_SKIP_SSM"):
+    _load_from_ssm()
 
 # ── Ensure output directories exist ──────────────────────────────────────────
 os.makedirs(os.environ.get("CHUNK_OUTPUT_DIR", "."), exist_ok=True)
