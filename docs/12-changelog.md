@@ -1,5 +1,71 @@
 # ClimateRAG — Changelog
 
+## 2026-06-11 — Performance, Precision & Eval Consolidation
+
+### Hybrid Search
+- **BM25 keyword search** added alongside FAISS vector search with Reciprocal Rank Fusion (RRF)
+- **Metadata pre-filtering**: Temporal (decade range) + geographic (50-mile radius or region match) applied BEFORE search
+- **Word-boundary regex** for city matching: "LA" no longer matches inside "Alaska"
+- **GHCN source boost** (1.5x) for temperature queries on both city AND region queries
+- **Solar/precipitation bypass**: No GHCN boost for solar/radiation/precip queries (NASA POWER preferred)
+- **Dynamic top_k**: 3 for focused queries, 10 for general, 15 for trend/plot queries
+- **Entity post-filter**: Multi-entity comparison results filtered to only matching stations
+- **Deterministic decade cap**: Multi-entity merge uses temporal range to set result limit (e.g., 8 decades × 2 = 16)
+
+### Data Ingestion
+- **GHCN precipitation (PRCP)** added to ingestion pipeline (station-level ground truth)
+- **NASA POWER reduced to solar-only** (removed temp/precip — GHCN is more accurate for those)
+- **City aliases** in GHCN chunks (NYC, LA, SF, etc.) for BM25 keyword matching
+- **City field** added to all 37 stations for proper embedding text
+
+### Performance
+- **System prompt trimmed**: 80 lines → 15 lines (-600 tokens)
+- **Celsius only**: No duplicate Fahrenheit conversions
+- **One chart max**: Only generated when explicitly asked ("plot", "chart", "graph")
+- **Bedrock timeout**: 120s read timeout via BotocoreConfig
+- **Skip memory reconstruction on first turn**: Saves 1-2s on initial query
+- **Streaming**: Token-by-token via Strands `stream_async` with async→sync bridge
+- **TTFT progress indicator**: "🔍 Searching climate data..." shown until first token
+
+### Latency Metrics
+- P50: 25.7s → **12.5s** (51% improvement)
+- P95: 39.7s → **21.5s** (46% improvement)
+- Error rate: 20% → **0%** (orphan recovery)
+
+### Memory & History
+- **History reconstruction from AgentCore Memory**: Rebuilds Bedrock messages on restart
+- **EventMessage handling**: Correctly parses SDK's `EventMessage` objects (not plain dicts)
+- **Orphan tool_use recovery**: Both streaming and non-streaming paths clear + retry
+- **Conversation sanitizer**: Trims trailing orphaned messages while preserving valid history
+
+### Evaluation Framework
+- **Consolidated eval runner** (`eval/run.py`): Single entry point for all 4 suites
+- **Golden dataset** (`eval/golden_dataset.py`): Unified test data (retrieval + E2E + multiturn)
+- **Shared judge module** (`eval/judge.py`): LLM-as-Judge for both single and multi-turn
+- **Metrics module** (`eval/metrics.py`): IR + composite + latency percentile computation
+- **Eval dashboard**: Streamlit page with metric cards, tables, bar charts, and trend lines
+
+### Testing
+- **243 unit tests** (up from 136), 78% coverage
+- **5 integration tests** for Memory reconstruction (5-turn round-trip)
+- **Fixed boto3 mocking**: All tests use `patch("boto3.Session")` matching actual code
+- **Metadata filter tests**: 20 tests covering temporal, geo, haversine, combined filters
+- **Chart tool guard tests**: 6 tests for sandbox error detection
+- **Latency tracker tests**: 14 tests for timing, TTFT, percentiles
+
+### Infrastructure
+- **provision_agentcore.py**: Correct API response keys (`items` not `gatewaySummaries`, `memories` not `memorySummaries`)
+- **Teardown wait loop**: Polls targets until removed before deleting gateway
+- **Multi-strategy resource lookup**: list → SSM → CloudFormation → manual ID
+- **CLI overrides**: `--memory-id`, `--gateway-id`, `--code-interpreter-id` flags
+
+### CI/CD
+- **Ruff only** (flake8 removed): Single linter, faster CI
+- **Coverage threshold**: 78% enforced
+- **Load test workflow**: Manual dispatch with OIDC AWS credentials
+
+---
+
 ## 2026-06-10 — Gateway Teardown Reliability
 
 ### Infrastructure
