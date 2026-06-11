@@ -31,12 +31,6 @@ bandit-report.json
 cdk/cdk.out/
 cdk.out/
 
-# ── Terraform (deprecated, kept for safety) ──────────────────────
-terraform/*.tfstate*
-terraform/.terraform.lock.hcl
-terraform/.terraform/
-terraform/climate_rag_plan
-
 # ── Environment & Secrets ────────────────────────────────────────
 .env
 .env.*
@@ -63,9 +57,6 @@ Desktop.ini
 
 # ── Logs ─────────────────────────────────────────────────────────
 *.log
-
-# ── Eval Results ─────────────────────────────────────────────────
-eval/results/
 
 # ── Jupyter Notebooks (checkpoints) ─────────────────────────────
 .ipynb_checkpoints/
