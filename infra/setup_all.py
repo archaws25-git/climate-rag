@@ -40,7 +40,12 @@ def section(title):
 
 
 # ── S3 Bucket ────────────────────────────────────────────────────
-
+"""
+Sets up the S3 bucket for storing climate data. The bucket is named using the pattern {PROJECT}-index-{ACCOUNT_ID} to ensure uniqueness.
+The script attempts to create the bucket and handles the case where the bucket already exists (either owned by the user or another account).
+It also applies a public access block to ensure the bucket is not publicly accessible. 
+This bucket will be used by the AgentCore Memory for storing and retrieving the climate data context.
+"""
 def setup_s3():
     section("S3 Bucket")
     bucket = f"{PROJECT}-index-{ACCOUNT_ID}"
@@ -72,7 +77,13 @@ def setup_s3():
 
 
 # ── IAM Role for Lambda ──────────────────────────────────────────
-
+"""
+Sets up the IAM role for the Lambda functions. The role is named {PROJECT}-lambda-role and 
+has a trust policy allowing Lambda service to assume it. 
+The AWSLambdaBasicExecutionRole managed policy is attached to allow the Lambda functions to write logs to CloudWatch.
+The script checks if the role already exists and handles that case gracefully. 
+The ARN of the role is returned for use in Lambda function creation.
+"""
 def setup_lambda_role():
     section("IAM Role — Lambda")
     role_name = f"{PROJECT}-lambda-role"
@@ -108,7 +119,12 @@ def _zip_file(filepath):
     buf.seek(0)
     return buf.read()
 
-
+"""
+Sets up the Lambda functions for NASA POWER and NOAA NCEI API access.
+The function code is zipped and uploaded directly via the AWS SDK.
+The script checks if the Lambda functions already exist and updates the code if they do.
+The ARNs of the created or updated Lambda functions are returned for use in the Gateway setup.
+"""
 def setup_lambda(name, handler_path, role_arn, env_vars=None):
     func_name = f"{PROJECT}-{name}"
     code = _zip_file(handler_path)
@@ -156,7 +172,13 @@ def setup_lambdas(role_arn):
 
 
 # ── IAM Role for Gateway ─────────────────────────────────────────
-
+""""
+Sets up the IAM role for the AgentCore Gateway. The role is named {PROJECT}-gateway-role and has a trust policy 
+allowing the Bedrock AgentCore service to assume it.
+The script checks if the role already exists and handles that case gracefully.
+The role is granted permission to invoke the Lambda functions created for NASA POWER and NOAA NCEI API access. 
+The ARN of the role is returned for use in the Gateway creation.
+"""
 def setup_gateway_role(nasa_arn, noaa_arn):
     section("IAM Role — Gateway")
     role_name = f"{PROJECT}-gateway-role"
@@ -186,7 +208,13 @@ def setup_gateway_role(nasa_arn, noaa_arn):
 
 
 # ── AgentCore Memory ─────────────────────────────────────────────
-
+"""
+Sets up the AgentCore Memory for storing climate research context and findings. 
+The memory is named "ClimateRAGMemory" and uses a semantic memory strategy with a specific namespace configuration.
+The script checks if the Memory already exists and returns its ID if found. 
+If not, it creates the Memory and waits for it to become ACTIVE before returning the ID. 
+The Memory ID is needed for the agent configuration to enable context storage and retrieval.   
+"""
 def setup_memory():
     section("AgentCore Memory")
     name = "ClimateRAGMemory"
@@ -211,13 +239,14 @@ def setup_memory():
             }
         }]
     )
-    memory_id = resp["memoryId"]
+    memory_id = resp["memory"]["memoryId"]
     log(f"Created memory: {memory_id}")
 
     # Wait for ACTIVE
     log("Waiting for memory to become ACTIVE...")
     for _ in range(40):
-        status = agentcore.get_memory(memoryId=memory_id)["status"]
+        mem_resp = agentcore.get_memory(memoryId=memory_id)
+        status = mem_resp.get("status") or mem_resp.get("memory", {}).get("status")
         if status == "ACTIVE":
             break
         log(f"  status: {status}")
@@ -244,13 +273,14 @@ def setup_code_interpreter():
         description="Sandboxed Python for climate data chart generation",
         networkConfiguration={"networkMode": "PUBLIC"}
     )
-    ci_id = resp["codeInterpreterId"]
+    ci_id = resp.get("codeInterpreterId") or resp.get("codeInterpreter", {}).get("codeInterpreterId")
     log(f"Created Code Interpreter: {ci_id}")
 
     # Wait for ACTIVE
     log("Waiting for Code Interpreter to become ACTIVE...")
     for _ in range(40):
-        status = agentcore.get_code_interpreter(codeInterpreterIdentifier=ci_id)["status"]
+        ci_resp = agentcore.get_code_interpreter(codeInterpreterIdentifier=ci_id)
+        status = ci_resp.get("status") or ci_resp.get("codeInterpreter", {}).get("status")
         if status == "ACTIVE":
             break
         log(f"  status: {status}")
@@ -283,13 +313,14 @@ def setup_gateway(gateway_role_arn, nasa_arn, noaa_arn):
         protocolConfiguration={"mcp": {"searchType": "SEMANTIC"}},
         exceptionLevel="DEBUG",
     )
-    gw_id = resp["gatewayId"]
+    gw_id = resp.get("gatewayId") or resp.get("gateway", {}).get("gatewayId")
     log(f"Created Gateway: {gw_id}")
 
     # Wait for ACTIVE
     log("Waiting for Gateway to become ACTIVE...")
     for _ in range(40):
-        status = agentcore.get_gateway(gatewayIdentifier=gw_id)["status"]
+        gw_resp = agentcore.get_gateway(gatewayIdentifier=gw_id)
+        status = gw_resp.get("status") or gw_resp.get("gateway", {}).get("status")
         if status == "ACTIVE":
             break
         log(f"  status: {status}")

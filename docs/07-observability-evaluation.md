@@ -1,18 +1,43 @@
 # ClimateRAG — Observability & Evaluation Specification
 
-**Date:** 2026-03-26 | **Version:** 1.0
+**Date:** 2026-06-11 | **Version:** 2.0
 
 ---
 
 ## 1. Observability Architecture
 
-### 1.1 Trace Structure
+### 1.1 Trace Structure (OpenTelemetry)
 
-Every agent invocation produces an OTEL trace with the following spans:
+Every agent invocation produces OTel spans via `agent/tracing.py`:
 
 ```
-Trace: agent_invocation
-├── Span: user_query (query text, session_id)
+climate_rag.request (root)
+├── climate_rag.memory.save_user_turn
+├── climate_rag.history.reconstruct (if applicable)
+├── climate_rag.history.sanitize
+├── climate_rag.search.hybrid
+│   ├── climate_rag.search.embed_query (Titan v2, ~500ms)
+│   ├── climate_rag.search.faiss (~3ms)
+│   └── climate_rag.search.bm25 (~2ms)
+├── climate_rag.llm.stream (model generation)
+└── climate_rag.memory.save_assistant_turn
+```
+
+### 1.2 Latency Tracking
+
+The `agent/latency_tracker.py` module provides:
+- Per-request E2E timing
+- Time-to-First-Token (TTFT)
+- Token chunk counting
+- Session-level P50/P95/P99 percentile computation
+- Streamlit inline latency expander
+
+### 1.3 Exporters
+
+Configured via `OTEL_EXPORTER` env var:
+- `none` (default): In-memory span collection for Streamlit UI only
+- `console`: Prints spans to terminal (debugging)
+- `otlp`: Sends to OTLP collector (Jaeger, Grafana Tempo, X-Ray)
 ├── Span: memory_retrieval (short_term_turns, long_term_records)
 ├── Span: vector_retrieval (query_embedding_time, chunks_returned, relevance_scores)
 ├── Span: gateway_tool_call (tool_name, api_endpoint, latency, status_code)

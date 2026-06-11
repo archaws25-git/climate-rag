@@ -1,18 +1,27 @@
 """Memory tool — AgentCore Memory integration for multi-session context."""
 
-import os
 import json
+import os
 
-from bedrock_agentcore.memory.session import MemorySessionManager
 from bedrock_agentcore.memory.constants import ConversationalMessage, MessageRole
+from bedrock_agentcore.memory.session import MemorySessionManager
 from strands import tool
 
-MEMORY_ID = os.environ.get("CLIMATE_RAG_MEMORY_ID", "")
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 
+def _get_memory_id() -> str:
+    """Read memory ID lazily so it picks up SSM updates after import."""
+    return os.environ.get("CLIMATE_RAG_MEMORY_ID", "")
+
+
 def _get_session(actor_id: str, session_id: str):
-    mgr = MemorySessionManager(memory_id=MEMORY_ID, region_name=REGION)
+    memory_id = _get_memory_id()
+    if not memory_id:
+        raise RuntimeError(
+            "CLIMATE_RAG_MEMORY_ID is not set. Ensure the AgentCore stack is deployed and SSM parameters are populated."
+        )
+    mgr = MemorySessionManager(memory_id=memory_id, region_name=REGION)
     return mgr.create_memory_session(actor_id=actor_id, session_id=session_id)
 
 
@@ -29,9 +38,7 @@ def recall_research_context(actor_id: str, session_id: str, query: str) -> str:
         Relevant prior findings and preferences from long-term memory.
     """
     session = _get_session(actor_id, session_id)
-    records = session.search_long_term_memories(
-        query=query, namespace_prefix="/", top_k=5
-    )
+    records = session.search_long_term_memories(query=query, namespace_prefix="/", top_k=5)
     return json.dumps([str(r) for r in records], indent=2)
 
 

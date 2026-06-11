@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Verify Resource Tags",
+  "description": "After any CDK deploy or AWS provisioning command, reminds the agent to verify resource tags include Project, ManagedBy, and Environment as required by policy.",
+  "version": "1",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": [
+      "shell"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "If the command just executed was a CDK deploy or AWS resource creation, you MUST verify that all resources include the mandatory tags: Project=climate-rag, ManagedBy=kiro-cdk, Environment=dev. If tags are missing from the CDK code, flag it."
+  }
+}

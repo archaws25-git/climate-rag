@@ -1,8 +1,8 @@
 """Lambda proxy for NASA POWER API — exposed as MCP tool via AgentCore Gateway."""
 
 import json
-import urllib.request
 import urllib.parse
+import urllib.request
 
 BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
 
@@ -32,7 +32,7 @@ def handler(event, context):
 
     try:
         req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 — URL built from hardcoded HTTPS base
             data = json.loads(resp.read().decode())
 
         # Extract just the parameter values to keep response compact
@@ -41,13 +41,15 @@ def handler(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "source": "NASA_POWER",
-                "latitude": params["latitude"],
-                "longitude": params["longitude"],
-                "time_range": f"{params['start']}-{params['end']}",
-                "parameters": parameter_data,
-            }),
+            "body": json.dumps(
+                {
+                    "source": "NASA_POWER",
+                    "latitude": params["latitude"],
+                    "longitude": params["longitude"],
+                    "time_range": f"{params['start']}-{params['end']}",
+                    "parameters": parameter_data,
+                }
+            ),
         }
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}

@@ -2,11 +2,12 @@
 
 import json
 import os
+import tempfile
 import time
-import urllib.request
 import urllib.parse
+import urllib.request
 
-OUTPUT_DIR = os.environ.get("CHUNK_OUTPUT_DIR", "/tmp/climate-rag-chunks")
+OUTPUT_DIR = os.environ.get("CHUNK_OUTPUT_DIR", os.path.join(tempfile.gettempdir(), "climate-rag-chunks"))
 
 BASE_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point"
 PARAMETERS = "T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,ALLSKY_SFC_SW_DWN"
@@ -36,7 +37,7 @@ def query_power_api(lat, lon, start_year, end_year):
     req = urllib.request.Request(url)
 
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310 — hardcoded HTTPS URL
             return json.loads(resp.read().decode())
     except Exception as e:
         print(f"  Warning: API call failed ({e})")
@@ -75,26 +76,28 @@ def chunk_power_data(region_name, region_info, data) -> list[dict]:
             f"NASA POWER Monthly Data — {region_name} ({region_info['city']})\n"
             f"Coordinates: {region_info['lat']}°N, {region_info['lon']}°W\n"
             f"Decade: {decade} | Period: {min(years)}-{max(years)}\n"
-            f"Average temperature (T2M): {avg:.1f}°C ({avg * 9/5 + 32:.1f}°F)\n"
+            f"Average temperature (T2M): {avg:.1f}°C ({avg * 9 / 5 + 32:.1f}°F)\n"
             f"Range: {min(info['temps']):.1f}°C to {max(info['temps']):.1f}°C\n"
             f"Observations: {len(info['temps'])} monthly records\n"
         )
 
-        chunks.append({
-            "chunk_id": f"power_{region_name.lower()}_{decade}",
-            "text": text,
-            "metadata": {
-                "dataset": "NASA_POWER",
-                "region": region_name,
-                "city": region_info["city"],
-                "lat": region_info["lat"],
-                "lon": region_info["lon"],
-                "decade": decade,
-                "time_range": f"{min(years)}-{max(years)}",
-                "avg_temp_c": round(avg, 1),
-                "parameters": PARAMETERS,
-            },
-        })
+        chunks.append(
+            {
+                "chunk_id": f"power_{region_name.lower()}_{decade}",
+                "text": text,
+                "metadata": {
+                    "dataset": "NASA_POWER",
+                    "region": region_name,
+                    "city": region_info["city"],
+                    "lat": region_info["lat"],
+                    "lon": region_info["lon"],
+                    "decade": decade,
+                    "time_range": f"{min(years)}-{max(years)}",
+                    "avg_temp_c": round(avg, 1),
+                    "parameters": PARAMETERS,
+                },
+            }
+        )
 
     return chunks
 
@@ -113,8 +116,7 @@ def main():
 
     output_path = os.path.join(OUTPUT_DIR, "power_chunks.jsonl")
     with open(output_path, "w") as f:
-        for chunk in all_chunks:
-            f.write(json.dumps(chunk) + "\n")
+        f.writelines(json.dumps(chunk) + "\n" for chunk in all_chunks)
 
     print(f"Created {len(all_chunks)} NASA POWER chunks → {output_path}")
 

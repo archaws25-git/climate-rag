@@ -2,8 +2,8 @@
 
 import json
 import os
-import urllib.request
 import urllib.parse
+import urllib.request
 
 BASE_URL = "https://www.ncei.noaa.gov/access/services/data/v1"
 CDO_TOKEN = os.environ.get("NOAA_CDO_TOKEN", "")
@@ -38,7 +38,7 @@ def handler(event, context):
         if CDO_TOKEN:
             req.add_header("token", CDO_TOKEN)
 
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 — URL built from hardcoded HTTPS base
             data = json.loads(resp.read().decode())
 
         # Limit response size
@@ -47,12 +47,14 @@ def handler(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "source": "NOAA_NCEI",
-                "dataset": params["dataset"],
-                "record_count": len(data) if isinstance(data, list) else 1,
-                "data": data,
-            }),
+            "body": json.dumps(
+                {
+                    "source": "NOAA_NCEI",
+                    "dataset": params["dataset"],
+                    "record_count": len(data) if isinstance(data, list) else 1,
+                    "data": data,
+                }
+            ),
         }
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}

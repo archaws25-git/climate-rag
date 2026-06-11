@@ -1,0 +1,95 @@
+name: Load Tests — Throughput & Failover
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: "Which load tests to run"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - throughput
+          - failover
+      timeout_minutes:
+        description: "Max runtime in minutes"
+        required: false
+        default: "15"
+        type: string
+
+# Only allow one load test run at a time (avoid parallel cost spikes)
+concurrency:
+  group: load-tests
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.13"
+  AWS_REGION: us-east-1
+
+jobs:
+  load-tests:
+    name: Load Tests (${{ inputs.test_suite }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes) }}
+
+    # Requires AWS credentials configured as repository secrets
+    environment: load-testing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-timeout
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_LOAD_TEST_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Load SSM parameters
+        run: |
+          echo "CLIMATE_RAG_MEMORY_ID=$(aws ssm get-parameter --name /climate-rag/memory-id --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "CLIMATE_RAG_CODE_INTERPRETER_ID=$(aws ssm get-parameter --name /climate-rag/code-interpreter-id --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "CLIMATE_RAG_BUCKET=$(aws cloudformation describe-stacks --stack-name ClimateRagDataStack --query 'Stacks[0].Outputs[?OutputKey==`IndexBucketName`].OutputValue' --output text)" >> $GITHUB_ENV
+
+      - name: Run throughput tests
+        if: inputs.test_suite == 'all' || inputs.test_suite == 'throughput'
+        run: |
+          python -m pytest tests/load/test_throughput.py -v -s \
+            --timeout=300 \
+            --junitxml=load-results-throughput.xml
+
+      - name: Run failover tests
+        if: inputs.test_suite == 'all' || inputs.test_suite == 'failover'
+        run: |
+          python -m pytest tests/load/test_failover.py -v -s \
+            --timeout=300 \
+            --junitxml=load-results-failover.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: load-results-*.xml
+
+      - name: Post results summary
+        if: always()
+        run: |
+          echo "## Load Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Suite | ${{ inputs.test_suite }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | ${{ env.AWS_REGION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Timeout | ${{ inputs.timeout_minutes }} min |" >> $GITHUB_STEP_SUMMARY
