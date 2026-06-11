@@ -97,8 +97,9 @@ class TestRagSearchThroughput:
     @pytest.fixture(autouse=True)
     def setup(self, monkeypatch):
         """Ensure RAG tool uses the real bucket, not conftest's test-bucket."""
-        if _bucket:
-            monkeypatch.setenv("CLIMATE_RAG_BUCKET", _bucket)
+        if not _bucket:
+            pytest.skip("CLIMATE_RAG_BUCKET not available — load tests require deployed infrastructure")
+        monkeypatch.setenv("CLIMATE_RAG_BUCKET", _bucket)
         monkeypatch.setenv("CLIMATE_RAG_MEMORY_ID", "")
 
         from tools.rag_tool import _load_index, search_climate_data
@@ -106,8 +107,11 @@ class TestRagSearchThroughput:
         import tools.rag_tool as rag_mod
         rag_mod._index = None
         rag_mod._metadata = None
+        rag_mod._bm25_index = None
+        rag_mod._bm25_corpus_tokens = None
 
         self.search = search_climate_data
+        _load_index()
         _load_index()
 
     def test_single_query_latency(self):
@@ -168,14 +172,17 @@ class TestConcurrentThroughput:
     @pytest.fixture(autouse=True)
     def setup(self, monkeypatch):
         """Pre-load the index with real bucket."""
-        if _bucket:
-            monkeypatch.setenv("CLIMATE_RAG_BUCKET", _bucket)
+        if not _bucket:
+            pytest.skip("CLIMATE_RAG_BUCKET not available — load tests require deployed infrastructure")
+        monkeypatch.setenv("CLIMATE_RAG_BUCKET", _bucket)
         monkeypatch.setenv("CLIMATE_RAG_MEMORY_ID", "")
 
         from tools.rag_tool import _load_index, search_climate_data
         import tools.rag_tool as rag_mod
         rag_mod._index = None
         rag_mod._metadata = None
+        rag_mod._bm25_index = None
+        rag_mod._bm25_corpus_tokens = None
 
         self.search = search_climate_data
         _load_index()

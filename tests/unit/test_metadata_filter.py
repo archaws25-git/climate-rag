@@ -152,24 +152,24 @@ class TestApplyMetadataFilters:
         ]
 
     def test_no_filter_returns_all(self, sample_metadata):
-        indices = apply_metadata_filters(sample_metadata, "what is the temperature?")
+        indices, _ = apply_metadata_filters(sample_metadata, "what is the temperature?")
         assert len(indices) == len(sample_metadata)
 
     def test_region_filter(self, sample_metadata):
-        indices = apply_metadata_filters(sample_metadata, "temperature in the Southeast")
+        indices, _ = apply_metadata_filters(sample_metadata, "temperature in the Southeast")
         # Should include Southeast + Global (Global passes through)
         for idx in indices:
             region = sample_metadata[idx]["metadata"].get("region", "")
             assert region in ("Southeast", "Global")
 
     def test_temporal_filter(self, sample_metadata):
-        indices = apply_metadata_filters(sample_metadata, "temperature in the 1990s")
+        indices, _ = apply_metadata_filters(sample_metadata, "temperature in the 1990s")
         for idx in indices:
             decade = sample_metadata[idx]["metadata"].get("decade", "")
             assert decade == "1990s"
 
     def test_combined_filter(self, sample_metadata):
-        indices = apply_metadata_filters(
+        indices, _ = apply_metadata_filters(
             sample_metadata, "Southeast temperature in the 1990s"
         )
         for idx in indices:
@@ -179,7 +179,7 @@ class TestApplyMetadataFilters:
 
     def test_fallback_on_empty_result(self, sample_metadata):
         # A filter so restrictive it matches nothing should fall back to all
-        indices = apply_metadata_filters(
+        indices, _ = apply_metadata_filters(
             sample_metadata, "temperature in Antarctica in the 1800s"
         )
         # "Antarctica" won't match any city/region, "1800s" won't match any decade

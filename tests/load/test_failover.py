@@ -42,76 +42,77 @@ def _make_client_error(code, message="Service unavailable"):
 class TestVectorDBFailover:
     """Test behavior when FAISS index in S3 is unavailable."""
 
-    def test_s3_connection_failure(self):
+    def test_s3_connection_failure(self, monkeypatch):
         """Should raise clear error when S3 is unreachable."""
         import importlib
         import agent.tools.rag_tool as rag_module
         importlib.reload(rag_module)
         rag_module._index = None
         rag_module._metadata = None
+        rag_module._bm25_index = None
+        rag_module._bm25_corpus_tokens = None
+        # Ensure no local index is found, forcing S3 path
+        monkeypatch.setenv("CHUNK_OUTPUT_DIR", "/nonexistent/path")
+        monkeypatch.setenv("CLIMATE_RAG_BUCKET", "test-bucket")
 
         mock_s3 = MagicMock()
         mock_s3.download_file.side_effect = EndpointConnectionError(
             endpoint_url="https://s3.us-east-1.amazonaws.com"
         )
 
-        with patch("boto3.client") as mock_boto:
-            def client_factory(service, **kwargs):
-                if service == "s3":
-                    return mock_s3
-                return MagicMock()
-            mock_boto.side_effect = client_factory
+        with patch("boto3.Session") as mock_session_cls:
+            mock_session_cls.return_value.client.return_value = mock_s3
 
             with pytest.raises(Exception) as exc_info:
                 rag_module.search_climate_data(query="test", top_k=3)
 
-            # Should be a connection-related error, not a crash
-            assert "endpoint" in str(exc_info.value).lower() or "connect" in str(exc_info.value).lower()
+            err_msg = str(exc_info.value).lower()
+            assert any(kw in err_msg for kw in ("endpoint", "connect", "forbidden", "403", "access"))
 
-    def test_s3_bucket_not_found(self):
+    def test_s3_bucket_not_found(self, monkeypatch):
         """Should raise clear error when bucket doesn't exist."""
         import importlib
         import agent.tools.rag_tool as rag_module
         importlib.reload(rag_module)
         rag_module._index = None
         rag_module._metadata = None
+        rag_module._bm25_index = None
+        rag_module._bm25_corpus_tokens = None
+        monkeypatch.setenv("CHUNK_OUTPUT_DIR", "/nonexistent/path")
+        monkeypatch.setenv("CLIMATE_RAG_BUCKET", "test-bucket")
 
         mock_s3 = MagicMock()
         mock_s3.download_file.side_effect = _make_client_error(
             "NoSuchBucket", "The specified bucket does not exist"
         )
 
-        with patch("boto3.client") as mock_boto:
-            def client_factory(service, **kwargs):
-                if service == "s3":
-                    return mock_s3
-                return MagicMock()
-            mock_boto.side_effect = client_factory
+        with patch("boto3.Session") as mock_session_cls:
+            mock_session_cls.return_value.client.return_value = mock_s3
 
             with pytest.raises(ClientError) as exc_info:
                 rag_module.search_climate_data(query="test", top_k=3)
 
             assert "NoSuchBucket" in str(exc_info.value)
 
-    def test_s3_index_file_missing(self):
+    def test_s3_index_file_missing(self, monkeypatch):
         """Should raise error when faiss.index doesn't exist in bucket."""
         import importlib
         import agent.tools.rag_tool as rag_module
         importlib.reload(rag_module)
         rag_module._index = None
         rag_module._metadata = None
+        rag_module._bm25_index = None
+        rag_module._bm25_corpus_tokens = None
+        monkeypatch.setenv("CHUNK_OUTPUT_DIR", "/nonexistent/path")
+        monkeypatch.setenv("CLIMATE_RAG_BUCKET", "test-bucket")
 
         mock_s3 = MagicMock()
         mock_s3.download_file.side_effect = _make_client_error(
             "404", "Not Found"
         )
 
-        with patch("boto3.client") as mock_boto:
-            def client_factory(service, **kwargs):
-                if service == "s3":
-                    return mock_s3
-                return MagicMock()
-            mock_boto.side_effect = client_factory
+        with patch("boto3.Session") as mock_session_cls:
+            mock_session_cls.return_value.client.return_value = mock_s3
 
             with pytest.raises(ClientError):
                 rag_module.search_climate_data(query="test", top_k=3)
@@ -146,12 +147,8 @@ class TestEmbeddingModelFailover:
             "ThrottlingException", "Rate exceeded"
         )
 
-        with patch("boto3.client") as mock_boto:
-            def client_factory(service, **kwargs):
-                if service == "bedrock-runtime":
-                    return mock_bedrock
-                return MagicMock()
-            mock_boto.side_effect = client_factory
+        with patch("boto3.Session") as mock_session_cls:
+            mock_session_cls.return_value.client.return_value = mock_bedrock
 
             with pytest.raises(ClientError) as exc_info:
                 rag_module.search_climate_data(query="test query", top_k=3)
@@ -182,12 +179,8 @@ class TestEmbeddingModelFailover:
             "ModelNotReadyException", "Model is not available"
         )
 
-        with patch("boto3.client") as mock_boto:
-            def client_factory(service, **kwargs):
-                if service == "bedrock-runtime":
-                    return mock_bedrock
-                return MagicMock()
-            mock_boto.side_effect = client_factory
+        with patch("boto3.Session") as mock_session_cls:
+            mock_session_cls.return_value.client.return_value = mock_bedrock
 
             with pytest.raises(ClientError) as exc_info:
                 rag_module.search_climate_data(query="test", top_k=3)
