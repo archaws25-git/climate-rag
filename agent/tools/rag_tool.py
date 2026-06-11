@@ -243,14 +243,18 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
             vector_raw_scores[doc_idx] = 0.3  # Below CONFIDENCE_LOW threshold
 
     # Sort by RRF score and take top_k
-    # Apply source preference: boost GHCN station data for station/city queries
-    # This prevents NASA POWER gridded data from outranking station-level data
+    # Apply source preference: boost GHCN station data for temperature queries
+    # (both city AND region). Skip boost for solar/precipitation queries
+    # where NASA POWER is the only/preferred source.
     from tools.metadata_filter import extract_geo_filter
 
     geo = extract_geo_filter(query)
-    is_station_query = geo is not None and geo.get("type") == "radius"
+    is_geo_query = geo is not None
+    is_solar_precip = bool(re.search(
+        r'\b(solar|radiation|precip|rainfall|rain)\b', query, re.IGNORECASE
+    ))
 
-    if is_station_query:
+    if is_geo_query and not is_solar_precip:
         for doc_idx in rrf_scores:
             meta = _metadata[doc_idx]
             dataset = meta.get("metadata", {}).get("dataset", "")
@@ -316,7 +320,7 @@ def search_climate_data(query: str, top_k: int = 10) -> str:
     if trend_pattern.search(query):
         effective_k = 15  # Full coverage for multi-decade trend queries
     else:
-        effective_k = min(top_k, 5)
+        effective_k = min(top_k, 3)  # Tight focus for specific queries
     results = _hybrid_search(query, effective_k)
     return _format_response(results)
 
@@ -353,12 +357,23 @@ def _multi_entity_search(query: str, top_k: int) -> str:
     results_b = _hybrid_search(f"{entity_b} temperature climate data", per_entity_k)
 
     # Merge: deduplicate by chunk text prefix
+    # Post-filter: keep only results that match one of the parsed entities
+    entity_a_lower = entity_a.lower()
+    entity_b_lower = entity_b.lower()
+
     seen_texts = set()
     merged = []
     for r in results_a + results_b:
         text_key = r["text"][:80]
-        if text_key not in seen_texts:
-            seen_texts.add(text_key)
+        if text_key in seen_texts:
+            continue
+        seen_texts.add(text_key)
+        # Entity relevance check: station_name or region must contain one of the entities
+        station = r.get("station_name", "").lower()
+        region = r.get("region", "").lower()
+        if (entity_a_lower in station or entity_a_lower in region or
+                entity_b_lower in station or entity_b_lower in region or
+                r.get("source") == "GISTEMP_v4"):  # Always allow global data through
             merged.append(r)
 
     # Determine max_results using the temporal range from the original query
