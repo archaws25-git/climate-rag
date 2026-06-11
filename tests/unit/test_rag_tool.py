@@ -220,8 +220,10 @@ class TestHybridSearch:
 
         with patch("boto3.Session", return_value=mock_session):
             rag_module = _reset_rag_module()
+            # Use "Atlanta Hartsfield temperature trend" to match BM25 keywords
+            # and trigger the trend pattern (avoids low top_k=3 cap)
             result = rag_module.search_climate_data(
-                query="Atlanta", top_k=5
+                query="Atlanta Hartsfield temperature trend", top_k=10
             )
 
         parsed = json.loads(result)

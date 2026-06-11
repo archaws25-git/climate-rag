@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "eval"))
 
-from run_retrieval_eval import (
+from metrics import (
     is_relevant,
     ndcg_at_k,
     precision_at_k,
