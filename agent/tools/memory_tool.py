@@ -19,8 +19,7 @@ def _get_session(actor_id: str, session_id: str):
     memory_id = _get_memory_id()
     if not memory_id:
         raise RuntimeError(
-            "CLIMATE_RAG_MEMORY_ID is not set. "
-            "Ensure the AgentCore stack is deployed and SSM parameters are populated."
+            "CLIMATE_RAG_MEMORY_ID is not set. Ensure the AgentCore stack is deployed and SSM parameters are populated."
         )
     mgr = MemorySessionManager(memory_id=memory_id, region_name=REGION)
     return mgr.create_memory_session(actor_id=actor_id, session_id=session_id)

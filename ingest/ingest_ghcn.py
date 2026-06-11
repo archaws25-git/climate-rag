@@ -20,166 +20,343 @@ OUTPUT_DIR = os.environ.get("CHUNK_OUTPUT_DIR", os.path.join(tempfile.gettempdir
 STATIONS = {
     # ── Southeast (6 stations) ────────────────────────────────────────────────
     "USW00013874": {
-        "name": "Atlanta Hartsfield", "state": "GA", "region": "Southeast",
-        "lat": 33.63, "lon": -84.44, "city": "Atlanta", "aliases": "ATL",
+        "name": "Atlanta Hartsfield",
+        "state": "GA",
+        "region": "Southeast",
+        "lat": 33.63,
+        "lon": -84.44,
+        "city": "Atlanta",
+        "aliases": "ATL",
     },
     "USW00012839": {
-        "name": "Miami International", "state": "FL", "region": "Southeast",
-        "lat": 25.79, "lon": -80.32, "city": "Miami", "aliases": "MIA, South Florida",
+        "name": "Miami International",
+        "state": "FL",
+        "region": "Southeast",
+        "lat": 25.79,
+        "lon": -80.32,
+        "city": "Miami",
+        "aliases": "MIA, South Florida",
     },
     "USW00013881": {
-        "name": "Charlotte Douglas", "state": "NC", "region": "Southeast",
-        "lat": 35.21, "lon": -80.94, "city": "Charlotte", "aliases": "CLT",
+        "name": "Charlotte Douglas",
+        "state": "NC",
+        "region": "Southeast",
+        "lat": 35.21,
+        "lon": -80.94,
+        "city": "Charlotte",
+        "aliases": "CLT",
     },
     "USW00013897": {
-        "name": "Nashville International", "state": "TN", "region": "Southeast",
-        "lat": 36.12, "lon": -86.69, "city": "Nashville", "aliases": "BNA",
+        "name": "Nashville International",
+        "state": "TN",
+        "region": "Southeast",
+        "lat": 36.12,
+        "lon": -86.69,
+        "city": "Nashville",
+        "aliases": "BNA",
     },
     "USW00013889": {
-        "name": "Jacksonville International", "state": "FL", "region": "Southeast",
-        "lat": 30.49, "lon": -81.69, "city": "Jacksonville", "aliases": "JAX",
+        "name": "Jacksonville International",
+        "state": "FL",
+        "region": "Southeast",
+        "lat": 30.49,
+        "lon": -81.69,
+        "city": "Jacksonville",
+        "aliases": "JAX",
     },
     "USW00012916": {
-        "name": "New Orleans Intl", "state": "LA", "region": "Southeast",
-        "lat": 29.98, "lon": -90.25, "city": "New Orleans", "aliases": "NOLA, MSY",
+        "name": "New Orleans Intl",
+        "state": "LA",
+        "region": "Southeast",
+        "lat": 29.98,
+        "lon": -90.25,
+        "city": "New Orleans",
+        "aliases": "NOLA, MSY",
     },
     # ── Northeast (6 stations) ────────────────────────────────────────────────
     "USW00094728": {
-        "name": "New York Central Park", "state": "NY", "region": "Northeast",
-        "lat": 40.78, "lon": -73.97, "city": "New York",
+        "name": "New York Central Park",
+        "state": "NY",
+        "region": "Northeast",
+        "lat": 40.78,
+        "lon": -73.97,
+        "city": "New York",
         "aliases": "NYC, New York City, Manhattan, NY",
     },
     "USW00014739": {
-        "name": "Boston Logan", "state": "MA", "region": "Northeast",
-        "lat": 42.36, "lon": -71.01, "city": "Boston", "aliases": "BOS",
+        "name": "Boston Logan",
+        "state": "MA",
+        "region": "Northeast",
+        "lat": 42.36,
+        "lon": -71.01,
+        "city": "Boston",
+        "aliases": "BOS",
     },
     "USW00013739": {
-        "name": "Philadelphia Intl", "state": "PA", "region": "Northeast",
-        "lat": 39.87, "lon": -75.23, "city": "Philadelphia", "aliases": "Philly, PHL",
+        "name": "Philadelphia Intl",
+        "state": "PA",
+        "region": "Northeast",
+        "lat": 39.87,
+        "lon": -75.23,
+        "city": "Philadelphia",
+        "aliases": "Philly, PHL",
     },
     "USW00013743": {
-        "name": "Washington Reagan", "state": "DC", "region": "Northeast",
-        "lat": 38.85, "lon": -77.03, "city": "Washington DC",
+        "name": "Washington Reagan",
+        "state": "DC",
+        "region": "Northeast",
+        "lat": 38.85,
+        "lon": -77.03,
+        "city": "Washington DC",
         "aliases": "DC, Washington, DCA",
     },
     "USW00094823": {
-        "name": "Pittsburgh Intl", "state": "PA", "region": "Northeast",
-        "lat": 40.49, "lon": -80.23, "city": "Pittsburgh", "aliases": "PIT",
+        "name": "Pittsburgh Intl",
+        "state": "PA",
+        "region": "Northeast",
+        "lat": 40.49,
+        "lon": -80.23,
+        "city": "Pittsburgh",
+        "aliases": "PIT",
     },
     "USW00014740": {
-        "name": "Hartford Bradley", "state": "CT", "region": "Northeast",
-        "lat": 41.94, "lon": -72.68, "city": "Hartford", "aliases": "BDL",
+        "name": "Hartford Bradley",
+        "state": "CT",
+        "region": "Northeast",
+        "lat": 41.94,
+        "lon": -72.68,
+        "city": "Hartford",
+        "aliases": "BDL",
     },
     # ── Midwest (6 stations) ──────────────────────────────────────────────────
     "USW00094846": {
-        "name": "Chicago OHare", "state": "IL", "region": "Midwest",
-        "lat": 41.99, "lon": -87.91, "city": "Chicago", "aliases": "ORD, CHI",
+        "name": "Chicago OHare",
+        "state": "IL",
+        "region": "Midwest",
+        "lat": 41.99,
+        "lon": -87.91,
+        "city": "Chicago",
+        "aliases": "ORD, CHI",
     },
     "USW00094847": {
-        "name": "Detroit Metro", "state": "MI", "region": "Midwest",
-        "lat": 42.21, "lon": -83.35, "city": "Detroit", "aliases": "DTW",
+        "name": "Detroit Metro",
+        "state": "MI",
+        "region": "Midwest",
+        "lat": 42.21,
+        "lon": -83.35,
+        "city": "Detroit",
+        "aliases": "DTW",
     },
     "USW00014922": {
-        "name": "Minneapolis St Paul", "state": "MN", "region": "Midwest",
-        "lat": 44.88, "lon": -93.23, "city": "Minneapolis",
+        "name": "Minneapolis St Paul",
+        "state": "MN",
+        "region": "Midwest",
+        "lat": 44.88,
+        "lon": -93.23,
+        "city": "Minneapolis",
         "aliases": "MSP, Twin Cities, St Paul",
     },
     "USW00013994": {
-        "name": "St Louis Lambert", "state": "MO", "region": "Midwest",
-        "lat": 38.75, "lon": -90.37, "city": "St Louis", "aliases": "STL, Saint Louis",
+        "name": "St Louis Lambert",
+        "state": "MO",
+        "region": "Midwest",
+        "lat": 38.75,
+        "lon": -90.37,
+        "city": "St Louis",
+        "aliases": "STL, Saint Louis",
     },
     "USW00093819": {
-        "name": "Indianapolis Intl", "state": "IN", "region": "Midwest",
-        "lat": 39.72, "lon": -86.27, "city": "Indianapolis", "aliases": "IND, Indy",
+        "name": "Indianapolis Intl",
+        "state": "IN",
+        "region": "Midwest",
+        "lat": 39.72,
+        "lon": -86.27,
+        "city": "Indianapolis",
+        "aliases": "IND, Indy",
     },
     "USW00014821": {
-        "name": "Columbus Port", "state": "OH", "region": "Midwest",
-        "lat": 40.00, "lon": -82.88, "city": "Columbus", "aliases": "CMH",
+        "name": "Columbus Port",
+        "state": "OH",
+        "region": "Midwest",
+        "lat": 40.00,
+        "lon": -82.88,
+        "city": "Columbus",
+        "aliases": "CMH",
     },
     # ── West (8 stations) ─────────────────────────────────────────────────────
     "USW00023174": {
-        "name": "Los Angeles Intl", "state": "CA", "region": "West",
-        "lat": 33.94, "lon": -118.39, "city": "Los Angeles",
+        "name": "Los Angeles Intl",
+        "state": "CA",
+        "region": "West",
+        "lat": 33.94,
+        "lon": -118.39,
+        "city": "Los Angeles",
         "aliases": "LA, LAX, L.A., Southern California, SoCal",
     },
     "USW00023234": {
-        "name": "San Francisco Intl", "state": "CA", "region": "West",
-        "lat": 37.62, "lon": -122.37, "city": "San Francisco",
+        "name": "San Francisco Intl",
+        "state": "CA",
+        "region": "West",
+        "lat": 37.62,
+        "lon": -122.37,
+        "city": "San Francisco",
         "aliases": "SF, SFO, Bay Area",
     },
     "USW00024233": {
-        "name": "Seattle Tacoma", "state": "WA", "region": "West",
-        "lat": 47.45, "lon": -122.31, "city": "Seattle",
+        "name": "Seattle Tacoma",
+        "state": "WA",
+        "region": "West",
+        "lat": 47.45,
+        "lon": -122.31,
+        "city": "Seattle",
         "aliases": "SEA, Pacific Northwest",
     },
     "USW00023062": {
-        "name": "Denver Intl", "state": "CO", "region": "West",
-        "lat": 39.83, "lon": -104.66, "city": "Denver",
+        "name": "Denver Intl",
+        "state": "CO",
+        "region": "West",
+        "lat": 39.83,
+        "lon": -104.66,
+        "city": "Denver",
         "aliases": "DEN, Mile High City",
     },
     "USW00023183": {
-        "name": "Phoenix Sky Harbor", "state": "AZ", "region": "West",
-        "lat": 33.43, "lon": -112.01, "city": "Phoenix", "aliases": "PHX",
+        "name": "Phoenix Sky Harbor",
+        "state": "AZ",
+        "region": "West",
+        "lat": 33.43,
+        "lon": -112.01,
+        "city": "Phoenix",
+        "aliases": "PHX",
     },
     "USW00024229": {
-        "name": "Portland Intl", "state": "OR", "region": "West",
-        "lat": 45.59, "lon": -122.60, "city": "Portland", "aliases": "PDX",
+        "name": "Portland Intl",
+        "state": "OR",
+        "region": "West",
+        "lat": 45.59,
+        "lon": -122.60,
+        "city": "Portland",
+        "aliases": "PDX",
     },
     "USW00023169": {
-        "name": "Las Vegas McCarran", "state": "NV", "region": "West",
-        "lat": 36.07, "lon": -115.16, "city": "Las Vegas", "aliases": "LAS, Vegas",
+        "name": "Las Vegas McCarran",
+        "state": "NV",
+        "region": "West",
+        "lat": 36.07,
+        "lon": -115.16,
+        "city": "Las Vegas",
+        "aliases": "LAS, Vegas",
     },
     "USW00024127": {
-        "name": "Salt Lake City Intl", "state": "UT", "region": "West",
-        "lat": 40.78, "lon": -111.97, "city": "Salt Lake City", "aliases": "SLC",
+        "name": "Salt Lake City Intl",
+        "state": "UT",
+        "region": "West",
+        "lat": 40.78,
+        "lon": -111.97,
+        "city": "Salt Lake City",
+        "aliases": "SLC",
     },
     # ── South Central (6 stations) ────────────────────────────────────────────
     "USW00013960": {
-        "name": "Dallas Fort Worth", "state": "TX", "region": "South Central",
-        "lat": 32.90, "lon": -97.02, "city": "Dallas",
+        "name": "Dallas Fort Worth",
+        "state": "TX",
+        "region": "South Central",
+        "lat": 32.90,
+        "lon": -97.02,
+        "city": "Dallas",
         "aliases": "DFW, Fort Worth, Dallas-Fort Worth",
     },
     "USW00012960": {
-        "name": "Houston Hobby", "state": "TX", "region": "South Central",
-        "lat": 29.65, "lon": -95.28, "city": "Houston", "aliases": "HOU, IAH",
+        "name": "Houston Hobby",
+        "state": "TX",
+        "region": "South Central",
+        "lat": 29.65,
+        "lon": -95.28,
+        "city": "Houston",
+        "aliases": "HOU, IAH",
     },
     "USW00013967": {
-        "name": "Oklahoma City", "state": "OK", "region": "South Central",
-        "lat": 35.39, "lon": -97.60, "city": "Oklahoma City", "aliases": "OKC",
+        "name": "Oklahoma City",
+        "state": "OK",
+        "region": "South Central",
+        "lat": 35.39,
+        "lon": -97.60,
+        "city": "Oklahoma City",
+        "aliases": "OKC",
     },
     "USW00012921": {
-        "name": "San Antonio Intl", "state": "TX", "region": "South Central",
-        "lat": 29.53, "lon": -98.47, "city": "San Antonio", "aliases": "SAT",
+        "name": "San Antonio Intl",
+        "state": "TX",
+        "region": "South Central",
+        "lat": 29.53,
+        "lon": -98.47,
+        "city": "San Antonio",
+        "aliases": "SAT",
     },
     "USW00013893": {
-        "name": "Memphis Intl", "state": "TN", "region": "South Central",
-        "lat": 35.06, "lon": -89.99, "city": "Memphis", "aliases": "MEM",
+        "name": "Memphis Intl",
+        "state": "TN",
+        "region": "South Central",
+        "lat": 35.06,
+        "lon": -89.99,
+        "city": "Memphis",
+        "aliases": "MEM",
     },
     "USW00013963": {
-        "name": "Little Rock Adams", "state": "AR", "region": "South Central",
-        "lat": 34.73, "lon": -92.24, "city": "Little Rock", "aliases": "LIT",
+        "name": "Little Rock Adams",
+        "state": "AR",
+        "region": "South Central",
+        "lat": 34.73,
+        "lon": -92.24,
+        "city": "Little Rock",
+        "aliases": "LIT",
     },
     # ── Alaska (3 stations) ───────────────────────────────────────────────────
     "USW00026451": {
-        "name": "Anchorage Intl", "state": "AK", "region": "Alaska",
-        "lat": 61.17, "lon": -150.02, "city": "Anchorage", "aliases": "ANC",
+        "name": "Anchorage Intl",
+        "state": "AK",
+        "region": "Alaska",
+        "lat": 61.17,
+        "lon": -150.02,
+        "city": "Anchorage",
+        "aliases": "ANC",
     },
     "USW00026411": {
-        "name": "Fairbanks Intl", "state": "AK", "region": "Alaska",
-        "lat": 64.80, "lon": -147.87, "city": "Fairbanks", "aliases": "FAI",
+        "name": "Fairbanks Intl",
+        "state": "AK",
+        "region": "Alaska",
+        "lat": 64.80,
+        "lon": -147.87,
+        "city": "Fairbanks",
+        "aliases": "FAI",
     },
     "USW00025309": {
-        "name": "Juneau Intl", "state": "AK", "region": "Alaska",
-        "lat": 58.36, "lon": -134.58, "city": "Juneau", "aliases": "JNU",
+        "name": "Juneau Intl",
+        "state": "AK",
+        "region": "Alaska",
+        "lat": 58.36,
+        "lon": -134.58,
+        "city": "Juneau",
+        "aliases": "JNU",
     },
     # ── Hawaii (2 stations) ───────────────────────────────────────────────────
     "USW00022521": {
-        "name": "Honolulu Intl", "state": "HI", "region": "Hawaii",
-        "lat": 21.33, "lon": -157.93, "city": "Honolulu", "aliases": "HNL",
+        "name": "Honolulu Intl",
+        "state": "HI",
+        "region": "Hawaii",
+        "lat": 21.33,
+        "lon": -157.93,
+        "city": "Honolulu",
+        "aliases": "HNL",
     },
     "USW00021504": {
-        "name": "Hilo Intl", "state": "HI", "region": "Hawaii",
-        "lat": 19.72, "lon": -155.05, "city": "Hilo", "aliases": "ITO",
+        "name": "Hilo Intl",
+        "state": "HI",
+        "region": "Hawaii",
+        "lat": 19.72,
+        "lon": -155.05,
+        "city": "Hilo",
+        "aliases": "ITO",
     },
 }
 
@@ -269,8 +446,8 @@ def generate_sample_data():
         "Midwest": 0.007,
         "West": 0.009,
         "South Central": 0.006,
-        "Alaska": 0.015,          # ~2x US average (Arctic amplification)
-        "Hawaii": 0.004,          # Below average (ocean-buffered tropics)
+        "Alaska": 0.015,  # ~2x US average (Arctic amplification)
+        "Hawaii": 0.004,  # Below average (ocean-buffered tropics)
     }
 
     lines = ["STATION,DATE,TAVG,TMAX,TMIN,PRCP"]
@@ -291,14 +468,17 @@ def generate_sample_data():
                 tmax = tavg + random.uniform(4, 7)
                 tmin = tavg - random.uniform(4, 7)
                 # Precipitation: region-dependent with seasonal variation
-                base_prcp = {"Southeast": 110, "Northeast": 95, "Midwest": 80,
-                             "West": 45, "South Central": 90, "Alaska": 40, "Hawaii": 50}
-                prcp = max(0, base_prcp[region] + random.gauss(0, 30) +
-                           20 * (1 if month in (6, 7, 8) else 0))
-                lines.append(
-                    f"{station_id},{year}-{month:02d}-01,"
-                    f"{tavg:.1f},{tmax:.1f},{tmin:.1f},{prcp:.1f}"
-                )
+                base_prcp = {
+                    "Southeast": 110,
+                    "Northeast": 95,
+                    "Midwest": 80,
+                    "West": 45,
+                    "South Central": 90,
+                    "Alaska": 40,
+                    "Hawaii": 50,
+                }
+                prcp = max(0, base_prcp[region] + random.gauss(0, 30) + 20 * (1 if month in (6, 7, 8) else 0))
+                lines.append(f"{station_id},{year}-{month:02d}-01,{tavg:.1f},{tmax:.1f},{tmin:.1f},{prcp:.1f}")
     return "\n".join(lines)
 
 
@@ -330,9 +510,7 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
 
         if key not in station_decades:
             station_decades[key] = []
-        station_decades[key].append({
-            "year": year, "month": date[5:7], "tavg": float(tavg), "prcp": prcp_val
-        })
+        station_decades[key].append({"year": year, "month": date[5:7], "tavg": float(tavg), "prcp": prcp_val})
 
     chunks = []
     for (station, decade), records in sorted(station_decades.items()):
@@ -368,7 +546,7 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
             f"located in {info['state']} at {info['lat']}°N, {info['lon']}°W.\n"
             f"Time period: {decade} decade ({min(years)}-{max(years)}).\n"
             f"Based on {len(records)} monthly observations:\n"
-            f"  Average temperature: {avg:.1f}°C ({avg * 9/5 + 32:.1f}°F)\n"
+            f"  Average temperature: {avg:.1f}°C ({avg * 9 / 5 + 32:.1f}°F)\n"
             f"  Temperature range: {min(temps):.1f}°C to {max(temps):.1f}°C\n"
         )
         if avg_prcp is not None:
@@ -378,23 +556,25 @@ def parse_and_chunk(csv_text: str) -> list[dict]:
             f"City: {city_name}. Station: {info['name']}. Decade: {decade}.\n"
         )
 
-        chunks.append({
-            "chunk_id": f"ghcn_{station}_{decade}",
-            "text": text,
-            "metadata": {
-                "dataset": "GHCN_v4",
-                "station_id": station,
-                "station_name": info["name"],
-                "state": info["state"],
-                "region": info["region"],
-                "lat": info["lat"],
-                "lon": info["lon"],
-                "decade": decade,
-                "time_range": f"{min(years)}-{max(years)}",
-                "avg_temp_c": round(avg, 1),
-                "avg_prcp_mm": round(avg_prcp, 1) if avg_prcp is not None else None,
-            },
-        })
+        chunks.append(
+            {
+                "chunk_id": f"ghcn_{station}_{decade}",
+                "text": text,
+                "metadata": {
+                    "dataset": "GHCN_v4",
+                    "station_id": station,
+                    "station_name": info["name"],
+                    "state": info["state"],
+                    "region": info["region"],
+                    "lat": info["lat"],
+                    "lon": info["lon"],
+                    "decade": decade,
+                    "time_range": f"{min(years)}-{max(years)}",
+                    "avg_temp_c": round(avg, 1),
+                    "avg_prcp_mm": round(avg_prcp, 1) if avg_prcp is not None else None,
+                },
+            }
+        )
 
     return chunks
 

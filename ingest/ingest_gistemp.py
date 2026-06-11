@@ -40,6 +40,7 @@ def _generate_synthetic_gistemp():
     - 2000-2025: rapid warming +0.5 to +1.3
     """
     import random
+
     random.seed(42)
 
     lines = ["Year,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec,J-D,D-N,DJF,MAM,JJA,SON"]

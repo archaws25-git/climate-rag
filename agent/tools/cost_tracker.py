@@ -144,9 +144,7 @@ class CostTracker:
             "requests": self._request_count,
             "session_total": self._session_total.to_dict(),
             "avg_cost_per_request": (
-                round(self._session_total.total_cost_usd / self._request_count, 6)
-                if self._request_count > 0
-                else 0.0
+                round(self._session_total.total_cost_usd / self._request_count, 6) if self._request_count > 0 else 0.0
             ),
         }
 

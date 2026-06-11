@@ -23,6 +23,7 @@ from typing import Optional
 
 try:
     from tracing import start_request_trace  # noqa: F401
+
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
@@ -55,9 +56,7 @@ class LatencyTracker:
         if stage in self._timers and self._timers[stage]["end"] is None:
             end = time.perf_counter()
             self._timers[stage]["end"] = end
-            self._timers[stage]["duration_ms"] = round(
-                (end - self._timers[stage]["start"]) * 1000, 1
-            )
+            self._timers[stage]["duration_ms"] = round((end - self._timers[stage]["start"]) * 1000, 1)
 
     def record_first_token(self):
         """Record when the first streaming token arrives."""
@@ -94,17 +93,21 @@ class LatencyTracker:
         for stage, timer in self._timers.items():
             duration = timer.get("duration_ms")
             if duration is not None:
-                breakdown.append({
-                    "stage": stage,
-                    "duration_ms": duration,
-                })
+                breakdown.append(
+                    {
+                        "stage": stage,
+                        "duration_ms": duration,
+                    }
+                )
 
         # Add TTFT if available
         if self.ttft_ms is not None:
-            breakdown.append({
-                "stage": "ttft (time to first token)",
-                "duration_ms": self.ttft_ms,
-            })
+            breakdown.append(
+                {
+                    "stage": "ttft (time to first token)",
+                    "duration_ms": self.ttft_ms,
+                }
+            )
 
         return breakdown
 
@@ -123,7 +126,7 @@ class LatencyTracker:
         lines = []
         e2e = self._timers.get("e2e", {}).get("duration_ms")
         if e2e:
-            lines.append(f"**Total:** {e2e:,.0f}ms ({e2e/1000:.1f}s)")
+            lines.append(f"**Total:** {e2e:,.0f}ms ({e2e / 1000:.1f}s)")
 
         if self.ttft_ms:
             lines.append(f"**TTFT:** {self.ttft_ms:,.0f}ms")
@@ -137,7 +140,7 @@ class LatencyTracker:
             duration = timer.get("duration_ms")
             if duration is not None:
                 # Calculate percentage of E2E
-                pct = f" ({duration/e2e*100:.0f}%)" if e2e and e2e > 0 else ""
+                pct = f" ({duration / e2e * 100:.0f}%)" if e2e and e2e > 0 else ""
                 lines.append(f"- {stage}: {duration:,.0f}ms{pct}")
 
         if self._token_count:
@@ -176,7 +179,6 @@ class LatencyTracker:
         history = LatencyTracker._history
         if len(history) < 2:
             return None
-
 
         e2e_values = sorted(h["e2e_ms"] for h in history if h["e2e_ms"] > 0)
         ttft_values = sorted(h["ttft_ms"] for h in history if h["ttft_ms"] > 0)

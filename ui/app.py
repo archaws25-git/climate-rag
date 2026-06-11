@@ -140,6 +140,7 @@ if prompt := st.chat_input("Ask about climate trends..."):
 
             # Initialize latency tracker
             from latency_tracker import LatencyTracker
+
             tracker = LatencyTracker(request_id=st.session_state.session_id)
             tracker.start("e2e")
 
@@ -148,9 +149,7 @@ if prompt := st.chat_input("Ask about climate trends..."):
             status_placeholder.caption("🔍 Searching climate data...")
 
             # Stream response token-by-token
-            stream_gen = handle_request_streaming(
-                prompt, st.session_state.session_id
-            )
+            stream_gen = handle_request_streaming(prompt, st.session_state.session_id)
 
             # Wrap the generator to capture TTFT and token count
             tracker.record_stream_start()
@@ -173,6 +172,7 @@ if prompt := st.chat_input("Ask about climate trends..."):
 
             # Retrieve metadata (charts, tools) after streaming completes
             from main import handle_request_streaming as _hrs
+
             metadata = _hrs._last_metadata
             charts = metadata.get("charts", [])
             tools_called = metadata.get("tools_called", [])
@@ -211,18 +211,19 @@ if prompt := st.chat_input("Ask about climate trends..."):
                     if span_rows:
                         st.dataframe(span_rows, use_container_width=True)
 
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": text if isinstance(text, str) else str(text),
-                "charts": charts,
-            })
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": text if isinstance(text, str) else str(text),
+                    "charts": charts,
+                }
+            )
         except Exception as e:
             import traceback
+
             full_tb = traceback.format_exc()
             print(f"FULL TRACEBACK:\n{full_tb}")
             st.error(f"Error: {e}")
             with st.expander("Full traceback", expanded=True):
                 st.code(full_tb)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": f"Error: {e}", "charts": []}
-            )
+            st.session_state.messages.append({"role": "assistant", "content": f"Error: {e}", "charts": []})

@@ -122,10 +122,7 @@ def save_and_upload(index, chunks):
         else:
             print(f"  ❌ FAILED to upload {filename} to S3!")
             print(f"  Manual fix: aws s3 cp {local_path} {s3_uri}")
-            raise RuntimeError(
-                f"S3 upload failed for {filename}. "
-                f"Run manually: aws s3 cp {local_path} {s3_uri}"
-            )
+            raise RuntimeError(f"S3 upload failed for {filename}. Run manually: aws s3 cp {local_path} {s3_uri}")
 
     print("  ✅ All files uploaded and verified in S3.")
 

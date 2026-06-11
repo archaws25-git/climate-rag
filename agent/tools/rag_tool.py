@@ -74,7 +74,7 @@ def _tokenize(text: str) -> list[str]:
 
     Lowercases, splits on non-alphanumeric, removes short tokens.
     """
-    tokens = re.findall(r'[a-z0-9]+', text.lower())
+    tokens = re.findall(r"[a-z0-9]+", text.lower())
     return [t for t in tokens if len(t) > 1]
 
 
@@ -232,14 +232,12 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
 
     # Vector RRF contribution
     for rank, (doc_idx, score) in enumerate(vector_results):
-        rrf_scores[doc_idx] = rrf_scores.get(doc_idx, 0.0) + \
-            VECTOR_WEIGHT * (1.0 / (RRF_K + rank + 1))
+        rrf_scores[doc_idx] = rrf_scores.get(doc_idx, 0.0) + VECTOR_WEIGHT * (1.0 / (RRF_K + rank + 1))
         vector_raw_scores[doc_idx] = score
 
     # BM25 RRF contribution
     for rank, (doc_idx, score) in enumerate(bm25_results):
-        rrf_scores[doc_idx] = rrf_scores.get(doc_idx, 0.0) + \
-            BM25_WEIGHT * (1.0 / (RRF_K + rank + 1))
+        rrf_scores[doc_idx] = rrf_scores.get(doc_idx, 0.0) + BM25_WEIGHT * (1.0 / (RRF_K + rank + 1))
         # If this doc wasn't found by vector search, estimate a low vector score
         if doc_idx not in vector_raw_scores:
             vector_raw_scores[doc_idx] = 0.3  # Below CONFIDENCE_LOW threshold
@@ -248,6 +246,7 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
     # Apply source preference: boost GHCN station data for station/city queries
     # This prevents NASA POWER gridded data from outranking station-level data
     from tools.metadata_filter import extract_geo_filter
+
     geo = extract_geo_filter(query)
     is_station_query = geo is not None and geo.get("type") == "radius"
 
@@ -271,19 +270,21 @@ def _hybrid_search(query: str, top_k: int) -> list[dict]:
         metadata = meta.get("metadata", {})
         citation = _build_citation(metadata)
 
-        results.append({
-            "score": vector_score,
-            "rrf_score": rrf_score,
-            "confidence_level": confidence,
-            "citation": citation,
-            "text": meta["text"],
-            "source": metadata.get("dataset", "unknown"),
-            "region": metadata.get("region", ""),
-            "decade": metadata.get("decade", ""),
-            "station_id": metadata.get("station_id", ""),
-            "station_name": metadata.get("station_name", ""),
-            "time_range": metadata.get("time_range", ""),
-        })
+        results.append(
+            {
+                "score": vector_score,
+                "rrf_score": rrf_score,
+                "confidence_level": confidence,
+                "citation": citation,
+                "text": meta["text"],
+                "source": metadata.get("dataset", "unknown"),
+                "region": metadata.get("region", ""),
+                "decade": metadata.get("decade", ""),
+                "station_id": metadata.get("station_id", ""),
+                "station_name": metadata.get("station_name", ""),
+                "time_range": metadata.get("time_range", ""),
+            }
+        )
 
     return results
 
@@ -303,17 +304,14 @@ def search_climate_data(query: str, top_k: int = 10) -> str:
 
     # Multi-entity detection: if query compares two locations/entities,
     # run separate searches to ensure both are represented in results.
-    comparison_pattern = re.compile(
-        r'\b(compare|comparing|between|vs\.?|versus)\b', re.IGNORECASE
-    )
+    comparison_pattern = re.compile(r"\b(compare|comparing|between|vs\.?|versus)\b", re.IGNORECASE)
     if comparison_pattern.search(query):
         return _multi_entity_search(query, top_k)
 
     # For non-comparison queries, use lower top_k to reduce context sent to LLM
     # Exception: trend/plot/history queries need more results to cover all decades
     trend_pattern = re.compile(
-        r'\b(trend|plot|graph|chart|history|since|over time|all decades|anomalies)\b',
-        re.IGNORECASE
+        r"\b(trend|plot|graph|chart|history|since|over time|all decades|anomalies)\b", re.IGNORECASE
     )
     if trend_pattern.search(query):
         effective_k = 15  # Full coverage for multi-decade trend queries
@@ -331,23 +329,13 @@ def _multi_entity_search(query: str, top_k: int) -> str:
     entities are represented.
     """
     # Extract entity names from comparison patterns
-    between_match = re.search(
-        r'between\s+(.+?)\s+and\s+(.+?)(?:\s+since|\s+over|\s+from|\s*$)',
-        query, re.IGNORECASE
-    )
-    vs_match = re.search(
-        r'(.+?)\s+(?:vs\.?|versus)\s+(.+?)(?:\s+since|\s+over|\s+from|\s*$)',
-        query, re.IGNORECASE
-    )
+    between_match = re.search(r"between\s+(.+?)\s+and\s+(.+?)(?:\s+since|\s+over|\s+from|\s*$)", query, re.IGNORECASE)
+    vs_match = re.search(r"(.+?)\s+(?:vs\.?|versus)\s+(.+?)(?:\s+since|\s+over|\s+from|\s*$)", query, re.IGNORECASE)
     compare_match = re.search(
-        r'compare\s+(.+?)\s+(?:and|to|with)\s+(.+?)(?:\s+since|\s+over|\s+from|\s*$)',
-        query, re.IGNORECASE
+        r"compare\s+(.+?)\s+(?:and|to|with)\s+(.+?)(?:\s+since|\s+over|\s+from|\s*$)", query, re.IGNORECASE
     )
     # Fallback: "X and Y temperature/trends/data"
-    and_match = re.search(
-        r'(.+?)\s+and\s+(.+?)(?:\s+temperature|\s+trends|\s+data|\s+climate)',
-        query, re.IGNORECASE
-    )
+    and_match = re.search(r"(.+?)\s+and\s+(.+?)(?:\s+temperature|\s+trends|\s+data|\s+climate)", query, re.IGNORECASE)
 
     match = between_match or vs_match or compare_match or and_match
     if not match:
@@ -396,29 +384,32 @@ def _format_response(results: list) -> str:
         overall_confidence = _score_to_confidence(top_score)
 
     if overall_confidence == "INSUFFICIENT":
-        return json.dumps({
+        return json.dumps(
+            {
+                "retrieval_metadata": {
+                    "overall_confidence": "INSUFFICIENT",
+                    "top_score": results[0]["score"] if results else 0.0,
+                    "search_method": "hybrid (vector + BM25 + RRF + metadata filter)",
+                    "message": ("Insufficient data found. Try live NASA POWER or NOAA NCEI API tools, or rephrase."),
+                },
+                "results": results,
+            },
+            indent=2,
+        )
+
+    return json.dumps(
+        {
             "retrieval_metadata": {
-                "overall_confidence": "INSUFFICIENT",
+                "overall_confidence": overall_confidence,
                 "top_score": results[0]["score"] if results else 0.0,
+                "num_results": len(results),
                 "search_method": "hybrid (vector + BM25 + RRF + metadata filter)",
-                "message": (
-                    "Insufficient data found. "
-                    "Try live NASA POWER or NOAA NCEI API tools, or rephrase."
-                ),
+                "confidence_note": _confidence_note(overall_confidence),
             },
             "results": results,
-        }, indent=2)
-
-    return json.dumps({
-        "retrieval_metadata": {
-            "overall_confidence": overall_confidence,
-            "top_score": results[0]["score"] if results else 0.0,
-            "num_results": len(results),
-            "search_method": "hybrid (vector + BM25 + RRF + metadata filter)",
-            "confidence_note": _confidence_note(overall_confidence),
         },
-        "results": results,
-    }, indent=2)
+        indent=2,
+    )
 
 
 def _build_citation(metadata: dict) -> str:
@@ -451,8 +442,7 @@ def _confidence_note(level: str) -> str:
             "Present these findings directly. Do NOT claim data is missing."
         ),
         "MEDIUM": (
-            "Data IS present but coverage may be partial. "
-            "Present these findings with a note about partial coverage."
+            "Data IS present but coverage may be partial. Present these findings with a note about partial coverage."
         ),
         "LOW": (
             "Data relevance is low. Present with explicit uncertainty caveats. "

@@ -80,6 +80,7 @@ def cleanup():
     if bucket:
         try:
             import boto3
+
             profile = os.environ.get("AWS_PROFILE")
             session = boto3.Session(
                 profile_name=profile,

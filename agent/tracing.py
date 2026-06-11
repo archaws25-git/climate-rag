@@ -66,14 +66,16 @@ class _InMemorySpanCollector:
             duration_ns = span.end_time - span.start_time if span.end_time else 0
             duration_ms = duration_ns / 1_000_000
 
-            _request_spans[req_id].append({
-                "name": span.name,
-                "duration_ms": round(duration_ms, 1),
-                "start_time": span.start_time,
-                "attributes": dict(span.attributes) if span.attributes else {},
-                "status": span.status.status_code.name if span.status else "UNSET",
-                "parent": span.parent.span_id if span.parent else None,
-            })
+            _request_spans[req_id].append(
+                {
+                    "name": span.name,
+                    "duration_ms": round(duration_ms, 1),
+                    "start_time": span.start_time,
+                    "attributes": dict(span.attributes) if span.attributes else {},
+                    "status": span.status.status_code.name if span.status else "UNSET",
+                    "parent": span.parent.span_id if span.parent else None,
+                }
+            )
 
 
 class _InMemoryExporter:
@@ -107,6 +109,7 @@ if EXPORTER_TYPE == "console":
 elif EXPORTER_TYPE == "otlp":
     try:
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
         endpoint = os.environ.get("OTEL_OTLP_ENDPOINT", "http://localhost:4317")
         _provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
     except ImportError:

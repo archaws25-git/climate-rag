@@ -156,7 +156,12 @@ def handle_request(prompt: str, session_id: str = None, actor_id: str = "default
             print("  ⚠️  Orphaned tool_use — clearing history and retrying...")
             agent.messages = []
             response = agent(prompt)
-        elif "too many tokens" in error_str or "context" in error_str or "overflow" in error_str or "input is too long" in error_str:
+        elif (
+            "too many tokens" in error_str
+            or "context" in error_str
+            or "overflow" in error_str
+            or "input is too long" in error_str
+        ):
             # Context overflow — clear history and retry with just this prompt
             print("  ⚠️  Context overflow detected — trimming history and retrying...")
             agent.messages = []

@@ -75,17 +75,19 @@ def generate_chart(python_code: str, description: str) -> str:
     dangerous_patterns = [".merge(", "pd.read_json(", "pd.read_csv(", "pd.DataFrame(data)"]
     for pattern in dangerous_patterns:
         if pattern in python_code:
-            return json.dumps({
-                "status": "error",
-                "error": (
-                    f"Code contains '{pattern}' which will not work in the sandbox. "
-                    "The sandbox has NO external data. "
-                    "ALL data values must be hardcoded as Python lists. "
-                    "Extract the specific temperature numbers from search results "
-                    "and put them directly in the code as: "
-                    "ny_temps = [12.1, 12.3, ...] and la_temps = [17.2, 17.3, ...]"
-                ),
-            })
+            return json.dumps(
+                {
+                    "status": "error",
+                    "error": (
+                        f"Code contains '{pattern}' which will not work in the sandbox. "
+                        "The sandbox has NO external data. "
+                        "ALL data values must be hardcoded as Python lists. "
+                        "Extract the specific temperature numbers from search results "
+                        "and put them directly in the code as: "
+                        "ny_temps = [12.1, 12.3, ...] and la_temps = [17.2, 17.3, ...]"
+                    ),
+                }
+            )
 
     client = boto3.client("bedrock-agentcore", region_name=REGION)
     session = client.start_code_interpreter_session(codeInterpreterIdentifier=CODE_INTERPRETER_ID)
@@ -125,34 +127,42 @@ def generate_chart(python_code: str, description: str) -> str:
 
         # Check if stdout contains an error from the sandbox
         error_indicators = [
-            "AttributeError", "has no attribute", "NameError",
-            "TypeError", "KeyError", "Traceback",
+            "AttributeError",
+            "has no attribute",
+            "NameError",
+            "TypeError",
+            "KeyError",
+            "Traceback",
         ]
         if any(indicator in stdout for indicator in error_indicators):
-            return json.dumps({
-                "status": "error",
-                "error": (
-                    f"Code execution failed in sandbox: {stdout[:500]}. "
-                    "REMINDER: The sandbox has NO external variables or DataFrames. "
-                    "You must hardcode ALL data as Python lists. "
-                    "Extract the exact temperature values from search results and "
-                    "define them inline: decades = ['1950s', ...], temps = [12.1, ...]"
-                ),
-            })
+            return json.dumps(
+                {
+                    "status": "error",
+                    "error": (
+                        f"Code execution failed in sandbox: {stdout[:500]}. "
+                        "REMINDER: The sandbox has NO external variables or DataFrames. "
+                        "You must hardcode ALL data as Python lists. "
+                        "Extract the exact temperature values from search results and "
+                        "define them inline: decades = ['1950s', ...], temps = [12.1, ...]"
+                    ),
+                }
+            )
 
         return json.dumps({"status": "error", "error": f"No chart in output: {stdout[:300]}"})
     except Exception as e:
         error_msg = str(e)
         if "has no attribute" in error_msg or "merge" in error_msg:
-            return json.dumps({
-                "status": "error",
-                "error": (
-                    f"Sandbox error: {error_msg}. "
-                    "You cannot use .merge() or access external data in the sandbox. "
-                    "Rewrite: define ALL data as inline Python lists, e.g. "
-                    "temps = [12.1, 12.3, 12.5, ...] extracted from search results."
-                ),
-            })
+            return json.dumps(
+                {
+                    "status": "error",
+                    "error": (
+                        f"Sandbox error: {error_msg}. "
+                        "You cannot use .merge() or access external data in the sandbox. "
+                        "Rewrite: define ALL data as inline Python lists, e.g. "
+                        "temps = [12.1, 12.3, 12.5, ...] extracted from search results."
+                    ),
+                }
+            )
         return json.dumps({"status": "error", "error": error_msg})
     finally:
         try:

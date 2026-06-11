@@ -52,12 +52,8 @@ def _load_guardrail_config():
     # Fall back to SSM
     try:
         ssm = boto3.client("ssm", region_name=REGION)
-        _guardrail_id = ssm.get_parameter(
-            Name="/climate-rag/guardrail-id"
-        )["Parameter"]["Value"]
-        _guardrail_version = ssm.get_parameter(
-            Name="/climate-rag/guardrail-version"
-        )["Parameter"]["Value"]
+        _guardrail_id = ssm.get_parameter(Name="/climate-rag/guardrail-id")["Parameter"]["Value"]
+        _guardrail_version = ssm.get_parameter(Name="/climate-rag/guardrail-version")["Parameter"]["Value"]
         # Cache in env for subsequent calls
         os.environ["CLIMATE_RAG_GUARDRAIL_ID"] = _guardrail_id
         os.environ["CLIMATE_RAG_GUARDRAIL_VERSION"] = _guardrail_version
@@ -103,9 +99,10 @@ def apply_input_guardrail(prompt: str) -> tuple[str, bool]:
         if action == "GUARDRAIL_INTERVENED":
             # Extract the blocked message from outputs
             outputs = resp.get("outputs", [])
-            block_message = outputs[0]["text"] if outputs else (
-                "Your query was blocked by safety filters. "
-                "Please ask a climate data question."
+            block_message = (
+                outputs[0]["text"]
+                if outputs
+                else ("Your query was blocked by safety filters. Please ask a climate data question.")
             )
             logger.info("Input BLOCKED by guardrail: %s", prompt[:100])
             return block_message, True
@@ -145,12 +142,14 @@ def apply_output_guardrail(response: str, grounding_source: str = "") -> tuple[s
 
         # If we have grounding source, include it for hallucination detection
         if grounding_source:
-            content.append({
-                "text": {
-                    "text": grounding_source,
-                    "qualifiers": ["grounding_source"],
+            content.append(
+                {
+                    "text": {
+                        "text": grounding_source,
+                        "qualifiers": ["grounding_source"],
+                    }
                 }
-            })
+            )
 
         resp = client.apply_guardrail(
             guardrailIdentifier=_guardrail_id,
@@ -163,9 +162,10 @@ def apply_output_guardrail(response: str, grounding_source: str = "") -> tuple[s
 
         if action == "GUARDRAIL_INTERVENED":
             outputs = resp.get("outputs", [])
-            filtered_text = outputs[0]["text"] if outputs else (
-                "The response was filtered by safety guardrails. "
-                "Please try rephrasing your question."
+            filtered_text = (
+                outputs[0]["text"]
+                if outputs
+                else ("The response was filtered by safety guardrails. Please try rephrasing your question.")
             )
             logger.info("Output BLOCKED by guardrail (len=%d)", len(response))
             return filtered_text, True

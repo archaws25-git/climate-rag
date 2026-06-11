@@ -105,9 +105,7 @@ def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float
     r = 3959  # Earth radius in miles
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = (math.sin(dlat / 2) ** 2 +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
-         math.sin(dlon / 2) ** 2)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     return r * 2 * math.asin(math.sqrt(a))
 
 
@@ -127,29 +125,26 @@ def extract_temporal_filter(query: str) -> Optional[tuple[str, str]]:
     query_lower = query.lower()
 
     # Pattern: "from the Xs to Ys" or "from X to Y"
-    range_match = re.search(
-        r'from\s+(?:the\s+)?(\d{4})s?\s+to\s+(?:the\s+)?(\d{4})s?',
-        query_lower
-    )
+    range_match = re.search(r"from\s+(?:the\s+)?(\d{4})s?\s+to\s+(?:the\s+)?(\d{4})s?", query_lower)
     if range_match:
         start = int(range_match.group(1))
         end = int(range_match.group(2))
         return (f"{(start // 10) * 10}s", f"{(end // 10) * 10}s")
 
     # Pattern: "since XXXX"
-    since_match = re.search(r'since\s+(?:the\s+)?(\d{4})s?', query_lower)
+    since_match = re.search(r"since\s+(?:the\s+)?(\d{4})s?", query_lower)
     if since_match:
         start = int(since_match.group(1))
         return (f"{(start // 10) * 10}s", "2020s")
 
     # Pattern: "in the XXXXs"
-    decade_match = re.search(r'in\s+the\s+(\d{4})s', query_lower)
+    decade_match = re.search(r"in\s+the\s+(\d{4})s", query_lower)
     if decade_match:
         decade = int(decade_match.group(1))
         return (f"{decade}s", f"{decade}s")
 
     # Pattern: "last N years" or "over the past N years"
-    last_years_match = re.search(r'(?:last|past)\s+(\d+)\s+years?', query_lower)
+    last_years_match = re.search(r"(?:last|past)\s+(\d+)\s+years?", query_lower)
     if last_years_match:
         years = int(last_years_match.group(1))
         start_year = 2025 - years
@@ -175,7 +170,7 @@ def extract_geo_filter(query: str) -> Optional[dict]:
     sorted_cities = sorted(CITY_COORDINATES.keys(), key=len, reverse=True)
     for city_name in sorted_cities:
         # Word boundary check: city must be preceded/followed by non-alpha or string edge
-        pattern = r'(?<![a-z])' + re.escape(city_name) + r'(?![a-z])'
+        pattern = r"(?<![a-z])" + re.escape(city_name) + r"(?![a-z])"
         if re.search(pattern, query_lower):
             lat, lon = CITY_COORDINATES[city_name]
             return {"type": "radius", "lat": lat, "lon": lon, "city": city_name}
@@ -247,10 +242,7 @@ def apply_metadata_filters(
                 chunk_lat = chunk_meta.get("lat")
                 chunk_lon = chunk_meta.get("lon")
                 if chunk_lat is not None and chunk_lon is not None:
-                    distance = haversine_miles(
-                        geo["lat"], geo["lon"],
-                        float(chunk_lat), float(chunk_lon)
-                    )
+                    distance = haversine_miles(geo["lat"], geo["lon"], float(chunk_lat), float(chunk_lon))
                     if distance > RADIUS_MILES:
                         continue
                 # If chunk has no lat/lon (e.g., GISTEMP global), let it through

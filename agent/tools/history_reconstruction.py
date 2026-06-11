@@ -151,10 +151,12 @@ def _convert_turns_to_messages(turns) -> list[dict]:
             if not text_val or not text_val.strip():
                 continue
 
-            messages.append({
-                "role": bedrock_role,
-                "content": [{"text": text_val.strip()}],
-            })
+            messages.append(
+                {
+                    "role": bedrock_role,
+                    "content": [{"text": text_val.strip()}],
+                }
+            )
         except Exception as e:
             logger.warning(f"Skipping corrupted turn: {e}")
             continue

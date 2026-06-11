@@ -16,9 +16,7 @@ import boto3
 logger = logging.getLogger(__name__)
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
-PLANNER_MODEL = os.environ.get(
-    "CLIMATE_RAG_PLANNER_MODEL", "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-)
+PLANNER_MODEL = os.environ.get("CLIMATE_RAG_PLANNER_MODEL", "us.anthropic.claude-sonnet-4-5-20250929-v1:0")
 
 PLANNER_PROMPT = """You are a query planner for a climate data retrieval system.
 Given a user query, determine if it should be split into multiple sub-queries.

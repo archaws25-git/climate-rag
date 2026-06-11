@@ -324,24 +324,32 @@ def _create_gateway_targets_from_props(client, gw_id, props):
         client.create_gateway_target(
             gatewayIdentifier=gw_id,
             name="nasa-power-proxy",
-            targetConfiguration={"mcp": {"lambda": {
-                "lambdaArn": nasa_arn,
-                "toolSchema": {"inlinePayload": [{
-                    "name": "nasa_power_query",
-                    "description": "Query NASA POWER API for climate data",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "latitude": {"type": "number"},
-                            "longitude": {"type": "number"},
-                            "start": {"type": "string"},
-                            "end": {"type": "string"},
-                            "parameters": {"type": "string"},
+            targetConfiguration={
+                "mcp": {
+                    "lambda": {
+                        "lambdaArn": nasa_arn,
+                        "toolSchema": {
+                            "inlinePayload": [
+                                {
+                                    "name": "nasa_power_query",
+                                    "description": "Query NASA POWER API for climate data",
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "latitude": {"type": "number"},
+                                            "longitude": {"type": "number"},
+                                            "start": {"type": "string"},
+                                            "end": {"type": "string"},
+                                            "parameters": {"type": "string"},
+                                        },
+                                        "required": ["latitude", "longitude", "start", "end"],
+                                    },
+                                }
+                            ]
                         },
-                        "required": ["latitude", "longitude", "start", "end"],
-                    },
-                }]},
-            }}},
+                    }
+                }
+            },
             credentialProviderConfigurations=[{"credentialProviderType": "GATEWAY_IAM_ROLE"}],
         )
         logger.info("Created gateway target: nasa-power-proxy")
@@ -352,24 +360,32 @@ def _create_gateway_targets_from_props(client, gw_id, props):
         client.create_gateway_target(
             gatewayIdentifier=gw_id,
             name="noaa-ncei-proxy",
-            targetConfiguration={"mcp": {"lambda": {
-                "lambdaArn": noaa_arn,
-                "toolSchema": {"inlinePayload": [{
-                    "name": "noaa_ncei_query",
-                    "description": "Query NOAA NCEI for historical climate observations",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "dataset": {"type": "string"},
-                            "stations": {"type": "string"},
-                            "startDate": {"type": "string"},
-                            "endDate": {"type": "string"},
-                            "dataTypes": {"type": "string"},
+            targetConfiguration={
+                "mcp": {
+                    "lambda": {
+                        "lambdaArn": noaa_arn,
+                        "toolSchema": {
+                            "inlinePayload": [
+                                {
+                                    "name": "noaa_ncei_query",
+                                    "description": "Query NOAA NCEI for historical climate observations",
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "dataset": {"type": "string"},
+                                            "stations": {"type": "string"},
+                                            "startDate": {"type": "string"},
+                                            "endDate": {"type": "string"},
+                                            "dataTypes": {"type": "string"},
+                                        },
+                                        "required": ["dataset", "startDate", "endDate"],
+                                    },
+                                }
+                            ]
                         },
-                        "required": ["dataset", "startDate", "endDate"],
-                    },
-                }]},
-            }}},
+                    }
+                }
+            },
             credentialProviderConfigurations=[{"credentialProviderType": "GATEWAY_IAM_ROLE"}],
         )
         logger.info("Created gateway target: noaa-ncei-proxy")

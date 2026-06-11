@@ -21,11 +21,11 @@ class BM25Index:
     def __init__(self, k1: float = 1.5, b: float = 0.75):
         self.k1 = k1
         self.b = b
-        self.documents = []      # List of tokenized documents
-        self.raw_texts = []      # Original text for each doc
+        self.documents = []  # List of tokenized documents
+        self.raw_texts = []  # Original text for each doc
         self.doc_count = 0
         self.avg_doc_len = 0.0
-        self.doc_freqs = {}      # term -> number of docs containing it
+        self.doc_freqs = {}  # term -> number of docs containing it
         self.idf_cache = {}
 
     def add_documents(self, texts: list[str]):
@@ -48,9 +48,7 @@ class BM25Index:
         # Pre-compute IDF
         self.idf_cache = {}
         for term, df in self.doc_freqs.items():
-            self.idf_cache[term] = math.log(
-                (self.doc_count - df + 0.5) / (df + 0.5) + 1
-            )
+            self.idf_cache[term] = math.log((self.doc_count - df + 0.5) / (df + 0.5) + 1)
 
     def search(self, query: str, top_k: int = 10) -> list[tuple[int, float]]:
         """Search the index. Returns list of (doc_index, score) tuples."""
@@ -81,9 +79,7 @@ class BM25Index:
 
             # BM25 TF component
             numerator = tf * (self.k1 + 1)
-            denominator = tf + self.k1 * (
-                1 - self.b + self.b * doc_len / self.avg_doc_len
-            )
+            denominator = tf + self.k1 * (1 - self.b + self.b * doc_len / self.avg_doc_len)
             score += idf * (numerator / denominator)
 
         return score

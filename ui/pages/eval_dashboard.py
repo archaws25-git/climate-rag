@@ -95,11 +95,11 @@ if "e2e" in suites:
     if latency:
         lcol1, lcol2, lcol3 = st.columns(3)
         with lcol1:
-            st.metric("E2E P50", f"{latency.get('p50', 0)/1000:.1f}s")
+            st.metric("E2E P50", f"{latency.get('p50', 0) / 1000:.1f}s")
         with lcol2:
-            st.metric("E2E P95", f"{latency.get('p95', 0)/1000:.1f}s")
+            st.metric("E2E P95", f"{latency.get('p95', 0) / 1000:.1f}s")
         with lcol3:
-            st.metric("E2E P99", f"{latency.get('p99', 0)/1000:.1f}s")
+            st.metric("E2E P99", f"{latency.get('p99', 0) / 1000:.1f}s")
 
     # Per-query results
     results = e2e.get("results", [])
@@ -162,13 +162,13 @@ if "latency" in suites:
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("P50", f"{e2e_stats.get('p50', 0)/1000:.1f}s")
+        st.metric("P50", f"{e2e_stats.get('p50', 0) / 1000:.1f}s")
     with col2:
-        st.metric("P95", f"{e2e_stats.get('p95', 0)/1000:.1f}s")
+        st.metric("P95", f"{e2e_stats.get('p95', 0) / 1000:.1f}s")
     with col3:
-        st.metric("P99", f"{e2e_stats.get('p99', 0)/1000:.1f}s")
+        st.metric("P99", f"{e2e_stats.get('p99', 0) / 1000:.1f}s")
     with col4:
-        st.metric("Mean", f"{e2e_stats.get('mean', 0)/1000:.1f}s")
+        st.metric("Mean", f"{e2e_stats.get('mean', 0) / 1000:.1f}s")
 
     # Per-query latencies as a bar chart
     results = lat.get("results", [])
@@ -177,6 +177,7 @@ if "latency" in suites:
         queries = [r.get("query", "")[:30] for r in results if r.get("status") == "ok"]
         if latencies:
             import pandas as pd
+
             chart_data = pd.DataFrame({"Query": queries, "Latency (s)": latencies})
             st.bar_chart(chart_data.set_index("Query"))
 
@@ -194,16 +195,19 @@ if len(result_files) > 1:
             ts = r.get("metadata", {}).get("timestamp", "")[:16]
             e2e_suite = r.get("suites", {}).get("e2e", {}).get("summary", {})
             ret_suite = r.get("suites", {}).get("retrieval", {}).get("summary", {})
-            trend_data.append({
-                "Run": ts,
-                "Composite": e2e_suite.get("avg_composite", 0),
-                "Recall": ret_suite.get("avg_recall", 0),
-            })
+            trend_data.append(
+                {
+                    "Run": ts,
+                    "Composite": e2e_suite.get("avg_composite", 0),
+                    "Recall": ret_suite.get("avg_recall", 0),
+                }
+            )
         except Exception:
             continue
 
     if trend_data:
         import pandas as pd
+
         df = pd.DataFrame(trend_data)
         if not df.empty:
             st.line_chart(df.set_index("Run"))

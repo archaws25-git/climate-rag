@@ -42,6 +42,7 @@ def ingest_ghcn():
     """Run GHCN ingestion."""
     section("1/5 — GHCN v4 (37 US stations)")
     from ingest_ghcn import main as ghcn_main
+
     ghcn_main()
 
 
@@ -51,6 +52,7 @@ def ingest_gistemp():
 
     try:
         from ingest_gistemp import main as gistemp_main
+
         gistemp_main()
     except Exception as e:
         print(f"  ⚠️  GISTEMP ingestion failed: {e}")
@@ -71,14 +73,26 @@ def _generate_synthetic_gistemp_chunks():
     Source: NASA GISS (data.giss.nasa.gov/gistemp), rephrased for compliance.
     """
     import random
+
     random.seed(42)
 
     # Verified decadal mean anomalies from NASA GISTEMP v4 (°C, baseline 1951-1980)
     decadal_means = {
-        "1880s": -0.16, "1890s": -0.09, "1900s": -0.04, "1910s": -0.13,
-        "1920s": -0.08, "1930s": 0.04, "1940s": 0.12, "1950s": -0.01,
-        "1960s": -0.01, "1970s": 0.01, "1980s": 0.18, "1990s": 0.39,
-        "2000s": 0.62, "2010s": 0.91, "2020s": 1.27,
+        "1880s": -0.16,
+        "1890s": -0.09,
+        "1900s": -0.04,
+        "1910s": -0.13,
+        "1920s": -0.08,
+        "1930s": 0.04,
+        "1940s": 0.12,
+        "1950s": -0.01,
+        "1960s": -0.01,
+        "1970s": 0.01,
+        "1980s": 0.18,
+        "1990s": 0.39,
+        "2000s": 0.62,
+        "2010s": 0.91,
+        "2020s": 1.27,
     }
 
     chunks = []
@@ -112,19 +126,21 @@ def _generate_synthetic_gistemp_chunks():
         for r in records:
             text += f"  {r['year']}: {r['annual_anomaly']:+.3f}°C\n"
 
-        chunks.append({
-            "chunk_id": f"gistemp_global_{decade}",
-            "text": text,
-            "metadata": {
-                "dataset": "GISTEMP_v4",
-                "region": "Global",
-                "decade": decade,
-                "time_range": f"{min(years)}-{max(years)}",
-                "unit": "degrees_C_anomaly",
-                "baseline": "1951-1980",
-                "avg_anomaly": round(avg, 3),
-            },
-        })
+        chunks.append(
+            {
+                "chunk_id": f"gistemp_global_{decade}",
+                "text": text,
+                "metadata": {
+                    "dataset": "GISTEMP_v4",
+                    "region": "Global",
+                    "decade": decade,
+                    "time_range": f"{min(years)}-{max(years)}",
+                    "unit": "degrees_C_anomaly",
+                    "baseline": "1951-1980",
+                    "avg_anomaly": round(avg, 3),
+                },
+            }
+        )
 
     output_path = os.path.join(CHUNK_DIR, "gistemp_chunks.jsonl")
     with open(output_path, "w", encoding="utf-8") as f:
@@ -140,6 +156,7 @@ def ingest_power():
 
     try:
         from ingest_power import main as power_main
+
         power_main()
     except Exception as e:
         print(f"  ⚠️  NASA POWER ingestion failed: {e}")
@@ -166,33 +183,46 @@ def _generate_synthetic_power_chunks():
     NOAA Climate Normals. Content rephrased for compliance.
     """
     import random
+
     random.seed(123)
 
     # Verified values from NREL for each region (solar only)
     regions = {
         "Southeast": {
-            "lat": 33.45, "lon": -84.39, "city": "Atlanta, GA",
-            "solar": 4.69,       # NREL avg annual GHI for Georgia
+            "lat": 33.45,
+            "lon": -84.39,
+            "city": "Atlanta, GA",
+            "solar": 4.69,  # NREL avg annual GHI for Georgia
         },
         "Northeast": {
-            "lat": 40.71, "lon": -74.01, "city": "New York, NY",
-            "solar": 3.98,       # NREL avg for New York state
+            "lat": 40.71,
+            "lon": -74.01,
+            "city": "New York, NY",
+            "solar": 3.98,  # NREL avg for New York state
         },
         "Midwest": {
-            "lat": 41.88, "lon": -87.63, "city": "Chicago, IL",
-            "solar": 3.92,       # NREL avg for Illinois
+            "lat": 41.88,
+            "lon": -87.63,
+            "city": "Chicago, IL",
+            "solar": 3.92,  # NREL avg for Illinois
         },
         "West": {
-            "lat": 37.77, "lon": -122.42, "city": "San Francisco, CA",
-            "solar": 5.23,       # NREL avg for California
+            "lat": 37.77,
+            "lon": -122.42,
+            "city": "San Francisco, CA",
+            "solar": 5.23,  # NREL avg for California
         },
         "Alaska": {
-            "lat": 61.22, "lon": -149.90, "city": "Anchorage, AK",
-            "solar": 2.73,       # NREL avg for south-central Alaska
+            "lat": 61.22,
+            "lon": -149.90,
+            "city": "Anchorage, AK",
+            "solar": 2.73,  # NREL avg for south-central Alaska
         },
         "Hawaii": {
-            "lat": 21.31, "lon": -157.86, "city": "Honolulu, HI",
-            "solar": 5.64,       # NREL avg for Hawaii
+            "lat": 21.31,
+            "lon": -157.86,
+            "city": "Honolulu, HI",
+            "solar": 5.64,  # NREL avg for Hawaii
         },
     }
 
@@ -219,21 +249,23 @@ def _generate_synthetic_power_chunks():
                 f"Region: {region_name}. Dataset: NASA POWER.\n"
             )
 
-            chunks.append({
-                "chunk_id": f"power_{region_name.lower()}_{decade}",
-                "text": text,
-                "metadata": {
-                    "dataset": "NASA_POWER",
-                    "region": region_name,
-                    "city": info["city"],
-                    "lat": info["lat"],
-                    "lon": info["lon"],
-                    "decade": decade,
-                    "time_range": f"{start_year}-{end_year}",
-                    "avg_solar_kwh": round(avg_solar, 2),
-                    "parameters": "ALLSKY_SFC_SW_DWN",
-                },
-            })
+            chunks.append(
+                {
+                    "chunk_id": f"power_{region_name.lower()}_{decade}",
+                    "text": text,
+                    "metadata": {
+                        "dataset": "NASA_POWER",
+                        "region": region_name,
+                        "city": info["city"],
+                        "lat": info["lat"],
+                        "lon": info["lon"],
+                        "decade": decade,
+                        "time_range": f"{start_year}-{end_year}",
+                        "avg_solar_kwh": round(avg_solar, 2),
+                        "parameters": "ALLSKY_SFC_SW_DWN",
+                    },
+                }
+            )
 
     output_path = os.path.join(CHUNK_DIR, "power_chunks.jsonl")
     with open(output_path, "w", encoding="utf-8") as f:
@@ -247,6 +279,7 @@ def generate_embeddings():
     """Run embedding generation for all chunk files."""
     section("4/5 — Generating Titan v2 Embeddings")
     from embeddings import main as embed_main
+
     embed_main()
 
 
@@ -254,6 +287,7 @@ def build_and_upload_index():
     """Build FAISS index and upload to S3."""
     section("5/5 — Building FAISS Index & Uploading to S3")
     from build_index import main as build_main
+
     build_main()
 
 
@@ -266,6 +300,7 @@ def main():
 
     # Clean ALL previous ingestion artifacts before rebuilding
     from cleanup import cleanup
+
     cleanup()
     os.makedirs(CHUNK_DIR, exist_ok=True)
 
